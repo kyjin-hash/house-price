@@ -114,7 +114,27 @@ function adjEstimate(rows, idx, valueOf, useFloor) {
   return [r1(median(vals)), rs.length, rs[0].ym];
 }
 const convJeon = r => r.dep + r.mr * 12 / CONV;
+// 가장 마지막 거래 1건을 지금 시점으로 환산 [보정값, 원래값, 거래일, 층, 시점보정%]
+function lastAdj(rows, idx, valueOf, useFloor) {
+  if (!rows.length) return null;
+  const r = rows.reduce((b, x) => !b || (x.ym + String(x.dd).padStart(2, '0')) > (b.ym + String(b.dd).padStart(2, '0')) ? x : b, null);
+  const I = idx[band(r.a)]; let f = 1;
+  if (I) { let k = YMS.indexOf(r.ym); while (k > 0 && I.sm[YMS[k]] == null) k--; const base = I.sm[YMS[k]]; if (base) f = I.now / base; }
+  const fl = useFloor ? floorAdj(r.f) : 1;
+  return [r1(valueOf(r) * f * fl), r1(valueOf(r)), r.ym + String(r.dd).padStart(2, '0'), r.f ?? null, Math.round((f * fl - 1) * 1000) / 10];
+}
 
+// 2021~22 고점 실거래 매매가 ÷ 같은 시기(±1개월, 없으면 ±2개월) 전세 실거래 중위값
+function peakRatio(top, je) {
+  if (!top) return null;
+  const i = YMS.indexOf(top.ym);
+  for (const w of [1, 2]) {
+    const win = new Set(YMS.slice(Math.max(0, i - w), i + w + 1));
+    const js = je.filter(r => win.has(r.ym)).map(r => r.dep);
+    if (js.length) { const jm = median(js); return [Math.round(jm / top.p * 1000) / 10, r1(top.p), top.ym + String(top.dd).padStart(2, '0'), r1(jm), js.length, w]; }
+  }
+  return null;
+}
 function summarize(regionRows) {
   const allTr = [], allJe = [];
   for (const { kind, rows } of regionRows) for (const r of rows) {
@@ -158,12 +178,15 @@ function summarize(regionRows) {
         last: last ? [last.ym + String(last.dd).padStart(2, '0'), r1(last.p), last.f] : null,
         top: top ? [top.ym + String(top.dd).padStart(2, '0'), r1(top.p), top.f] : null,
         top21: top21 ? [top21.ym + String(top21.dd).padStart(2, '0'), r1(top21.p), top21.f] : null,
+        pk21: peakRatio(top21, T.je),
         tPk: rollingPeak(trBy), jPk: rollingPeak(jeBy),
         nt: T.tr.filter(r => recent12.has(r.ym)).length, nj: T.je.filter(r => recent12.has(r.ym)).length, nw: T.wo,
         ntAll: T.tr.length, njAll: T.je.length,
         q: qs,
         tAdj: adjEstimate(T.tr, tIdx, r => r.p, true),
         jAdj: adjEstimate(T.je.concat(T.jc || []), jIdx, convJeon, false),
+        tLast: lastAdj(T.tr, tIdx, r => r.p, true),
+        jLast: lastAdj(T.je.concat(T.jc || []), jIdx, convJeon, false),
       });
     }
     if (!types.length) continue;

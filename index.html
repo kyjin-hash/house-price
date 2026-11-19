@@ -336,8 +336,8 @@ th{font-size:12px}
       </div>
       <div class="chips-row"><span class="hint">평형</span><div class="chips" id="areaChips" role="group" aria-label="평형 선택"></div></div>
       <div class="mk-grid">
-        <div class="est"><span class="l">매매 추정 시세 <span class="autotag">보정</span></span><span class="v mv" id="mkTA"></span><span class="d" id="mkTAD"></span></div>
-        <div class="est"><span class="l">신규 전세 추정 시세 <span class="autotag">보정</span></span><span class="v jv" id="mkJA"></span><span class="d" id="mkJAD"></span></div>
+        <div class="est"><span class="l">매매 추정 시세 <span class="autotag" id="tagT">실거래</span></span><span class="v mv" id="mkTA"></span><span class="d" id="mkTAD"></span></div>
+        <div class="est"><span class="l">신규 전세 추정 시세 <span class="autotag" id="tagJ">실거래</span></span><span class="v jv" id="mkJA"></span><span class="d" id="mkJAD"></span></div>
         <div class="ask"><span class="l">네이버 최저 호가 (직접 입력)</span>
           <div class="askrow"><label>매매 <input id="askT" type="number" step="0.1" placeholder="억"></label><label class="lowchk"><input type="checkbox" id="askTL">저층</label>
             <label>전세 <input id="askJ" type="number" step="0.1" placeholder="억"></label><label class="lowchk"><input type="checkbox" id="askJL">저층</label></div>
@@ -346,7 +346,7 @@ th{font-size:12px}
         <div><span class="l">매매 최근 3개월 중위</span><span class="v" id="mkT3"></span><span class="d" id="mkT3D"></span></div>
         <div><span class="l">신규 전세 최근 3개월 중위</span><span class="v" id="mkJ3"></span><span class="d" id="mkJ3D"></span></div>
         <div class="pk"><span class="l">2021~22 상승장 고점 실거래</span><span class="v mv" id="mk21"></span><span class="d" id="mk21D"></span></div>
-        <div class="pk"><span class="l">2021 고점 당시 전세가율</span><span class="v jv" id="mk21R"></span><span class="d" id="mk21RD"></span></div>
+        <div class="pk"><span class="l">2021 고점 거래 시 전세가율</span><span class="v jv" id="mk21R"></span><span class="d" id="mk21RD"></span></div>
         <div class="pk"><span class="l">역대 최고 실거래 (2020~)</span><span class="v" id="mkTop"></span><span class="d" id="mkTopD"></span></div>
         <div hidden><span id="mkTPk"></span><span id="mkTPkD"></span><span id="mkJPk"></span><span id="mkJPkD"></span></div>
       </div>
@@ -355,7 +355,7 @@ th{font-size:12px}
         <ul><li><b>시점 보정</b>: 같은 구·같은 면적대(60㎡ 미만 / 60~85㎡ / 85㎡ 이상) 아파트의 월별 ㎡당 가격 지수를 만들고, 최근 1년 안의 거래를 지금 시점 가격으로 환산</li>
         <li><b>층 보정</b>: 1층 +6%, 2층 +4%, 3층 +2%로 중층 기준 환산 (매매만)</li>
         <li><b>반전세 환산</b>: 신규 반전세는 보증금 + 월세×12 ÷ 전환율 5.5%로 전세 환산해 표본에 포함 (갱신 계약은 제외)</li></ul>
-        <p>최근 거래 최대 10건을 보정한 값의 중위값이 추정 시세입니다.</p></details>
+        <p><b>추정 시세 = 가장 마지막 실거래 1건</b>을 위 방식으로 지금 시점 가격으로 환산한 값입니다. <b>네이버 최저 호가를 입력하면 추정 시세가 그 호가로 바뀌고</b>(저층 체크 시 ÷0.9 일반층 환산), 예상 고점 계산에도 바로 반영됩니다.</p></details>
       <div class="mk-chart">
         <div class="legend"><span><i style="background:var(--mae)"></i>분기 평균 매매</span><span><i style="background:var(--jeon)"></i>분기 평균 전세</span><span class="hint" id="mkRatioNow"></span></div>
         <div class="chartbox"><svg id="mkChart" viewBox="0 0 900 230" role="img" aria-label="분기별 평균 매매가와 전세가"></svg><div class="tip" id="mkTip" hidden></div></div>
@@ -644,8 +644,8 @@ function pickType(a,area){
   const act=T.filter(t=>t.nt+t.nj>0);const pool=act.length?act:T;
   return pool.reduce((b,t)=>Math.abs(t.a-84)<Math.abs(b.a-84)?t:b,pool[0]);
 }
-const P=t=>t.tAdj?t.tAdj[0]:(t.t3??t.t12);   // 보정 매매 시세
-const J=t=>t.jAdj?t.jAdj[0]:(t.j3??t.j12);   // 보정 신규 전세
+const P=t=>t.tLast?t.tLast[0]:t.tAdj?t.tAdj[0]:(t.t3??t.t12);   // 마지막 실거래 → 지금 시점 환산
+const J=t=>t.jLast?t.jLast[0]:t.jAdj?t.jAdj[0]:(t.j3??t.j12);   // 마지막 신규 전세 → 지금 시점 환산
 const priceOf=(ty,basis)=>basis==="last"?(ty.last?ty.last[1]:null):basis==="t3"?(ty.t3??ty.t12):(P(ty)??(ty.last?ty.last[1]:null));
 const jeonOf=(ty,jb)=>jb==="j3"?(ty.j3??ty.j12):J(ty);
 const askKey=()=>S.t.apt+"|"+S.t.area;
@@ -693,7 +693,7 @@ $("tAsk").addEventListener("input",e=>{S.t.ask=parseFloat(e.target.value);render
   if(id==="askTL"&&S.t.basis==="ask"&&isFinite(o.t))S.t.ask=askEff(o,"t");render()}));
 document.querySelectorAll("#jbasis button").forEach(b=>b.onclick=()=>{S.t.jbasis=b.dataset.j;S.t.manualJeon=false;render()});
 ["askT","askJ"].forEach(id=>$(id).addEventListener("input",e=>{S.asks=S.asks||{};const k=askKey();const o=S.asks[k]=S.asks[k]||{};const v=parseFloat(e.target.value);
-  o[id==="askT"?"t":"j"]=isFinite(v)?v:undefined;if(id==="askT"&&isFinite(v)){S.t.basis="ask";S.t.ask=askEff(o,"t");S.t.manualPrice=false}if(id==="askJ"&&isFinite(v)){S.t.jbasis="ask";S.t.manualJeon=false}render(id)}));
+  o[id==="askT"?"t":"j"]=isFinite(v)?v:undefined;S.t.manualPrice=false;S.t.manualJeon=false;if(S.t.basis==="ask")S.t.basis="adj";if(S.t.jbasis==="ask")S.t.jbasis="adj";render(id)}));
 
 function applyMarket(){
   const t=S.t;if(!DB||!t.apt){t.hist=null;return null}
@@ -701,18 +701,21 @@ function applyMarket(){
   const ty=pickType(a,t.area);if(t.area==null)t.area=ty.a;
   t.hist=peakRatio21(ty); // 이 단지가 2021 고점 때 실제로 내려갔던 전세가율
   S.asks=S.asks||{};const A=S.asks[askKey()]||{};
-  if(!t.manualPrice){const p=t.basis==="ask"?(t.ask??askEff(A,"t")):priceOf(ty,t.basis||"adj");if(isFinite(p)&&p>0)t.price=p}
-  if(!t.manualJeon){const j=t.jbasis==="ask"?askEff(A,"j"):jeonOf(ty,t.jbasis||"adj");if(isFinite(j)&&j>0)t.jeon=j}
+  if(!t.manualPrice){const b=t.basis||"adj";const p=b==="ask"?(t.ask??askEff(A,"t")):b==="adj"?(askEff(A,"t")??P(ty)):priceOf(ty,b);if(isFinite(p)&&p>0)t.price=p}
+  if(!t.manualJeon){const b=t.jbasis||"adj";const j=b==="ask"?askEff(A,"j"):b==="adj"?(askEff(A,"j")??J(ty)):jeonOf(ty,b);if(isFinite(j)&&j>0)t.jeon=j}
   return {a,ty};
 }
 function peakRatio21(ty){
+  // 1순위: 2021~22 고점 실거래 매매가 ÷ 같은 시기 전세 실거래 중위값
+  if(ty.pk21){const p=ty.pk21;return {r:p[0],src:"trade",t:p[1],date:p[2],j:p[3],n:p[4],w:p[5]}}
+  // 거래가 부족하면 고점 분기 전후 평균으로 대체
   const q=(ty.q||[]).filter(x=>x[0]>="2021Q1"&&x[0]<="2022Q4");
   const pk=q.reduce((b,x)=>x[1]!=null&&(!b||x[1]>b[1])?x:b,null);if(!pk)return null;
   const i=q.indexOf(pk),w=q.slice(Math.max(0,i-1),i+2);
   const tp=w.filter(x=>x[1]!=null).map(x=>x[1]),jp=w.filter(x=>x[2]!=null).map(x=>x[2]);
   if(!tp.length||!jp.length)return null;
   const av=a=>a.reduce((s,v)=>s+v,0)/a.length;
-  return {r:Math.round(av(jp)/av(tp)*1000)/10,q:pk[0],t:Math.round(av(tp)*10)/10,j:Math.round(av(jp)*10)/10};
+  return {r:Math.round(av(jp)/av(tp)*1000)/10,src:"q",q:pk[0],t:Math.round(av(tp)*10)/10,j:Math.round(av(jp)*10)/10};
 }
 const vsNow=(pk,now)=>pk&&now?`현재 대비 ${now>=pk?"+":""}${((now/pk-1)*100).toFixed(1)}%`:"";
 function renderMarket(m){
@@ -738,7 +741,7 @@ function renderMarket(m){
   $("mk21").textContent=ty.top21?ty.top21[1]+"억":"–";
   $("mk21D").textContent=ty.top21?`${ymd(ty.top21[0])} · ${ty.top21[2]}층 · 추정 시세는 ${vsNow(ty.top21[1],nowP).replace("현재 대비 ","")}`:"2021~22년 거래 없음";
   const h=t.hist;$("mk21R").textContent=h?h.r+"%":"–";
-  $("mk21RD").textContent=h?`${h.q.replace("Q"," ")}분기 전후 · 매매 평균 ${h.t}억 / 전세 평균 ${h.j}억 → 예상 고점 계산에 사용`:"그때 거래가 부족해 입지 등급 기본값 사용";
+  $("mk21RD").textContent=h?(h.src==="trade"?`고점 매매 ${h.t}억 (${ymd(h.date)}) ÷ 같은 시기 전세 실거래 ${h.j}억 (±${h.w}개월 ${h.n}건 중위) → 예상 고점 계산에 사용`:`${h.q.replace("Q"," ")}분기 전후 매매 평균 ${h.t}억 / 전세 평균 ${h.j}억 (고점 시기 전세 거래 없음) → 예상 고점 계산에 사용`):"그때 거래가 부족해 입지 등급 기본값 사용";
   $("mkTopD").textContent=ty.top?`${ymd(ty.top[0])} · ${ty.top[2]}층 · 추정 시세는 ${vsNow(ty.top[1],nowP).replace("현재 대비 ","")}`:"";
   $("mkTPk").textContent=ty.tPk?ty.tPk[1]+"억":"–";
   $("mkTPkD").textContent=ty.tPk?`${ymd(ty.tPk[0])} 전후 3개월 · ${vsNow(ty.tPk[1],nowP)}`:"거래가 적어 계산 불가";
@@ -794,18 +797,21 @@ $("lnSave").onclick=()=>{
 $("lnClear").onclick=()=>{S.links=S.links||{};delete S.links[askKey()];$("lnMsg").textContent="연결을 해제했어요";render()};
 function renderEst(a,ty){
   renderLinks(a);
-  const T=ty.tAdj,Jj=ty.jAdj;
-  $("mkTA").textContent=T?T[0]+"억":"–";
-  $("mkTAD").textContent=T?`최근 ${T[1]}건 시점·층 보정 · 마지막 거래 ${ymd(T[2])}`:"최근 1년 거래 없음";
-  $("mkJA").textContent=Jj?Jj[0]+"억":"–";
-  $("mkJAD").textContent=Jj?`최근 ${Jj[1]}건 (반전세 환산 포함) · 전세가율 ${T?(Jj[0]/T[0]*100).toFixed(1)+"%":"–"}`:"최근 1년 신규 계약 없음";
   const A=(S.asks||{})[askKey()]||{};
+  const at=askEff(A,"t"),aj=askEff(A,"j"),rt=P(ty),rj=J(ty);
+  const T=at??rt,Jj=aj??rj;   // 화면의 추정 시세
+  $("tagT").textContent=at?"호가":"실거래";$("tagJ").textContent=aj?"호가":"실거래";
+  const lastTxt=(L,unit)=>L?`마지막 ${unit} ${ymd(L[2])} ${L[1]}억${L[3]?" · "+L[3]+"층":""} → 시점 보정 ${L[4]>=0?"+":""}${L[4]}%`:"";
+  $("mkTA").textContent=T?f1(T)+"억":"–";
+  $("mkTAD").textContent=at?`네이버 최저 호가 기준${A.tL?" (저층 ${A.t}억 → 일반층 환산)":""} · 실거래 기반 ${rt?f1(rt)+"억":"–"}`:(ty.tLast?lastTxt(ty.tLast,"실거래"):"거래 없음");
+  $("mkJA").textContent=Jj?f1(Jj)+"억":"–";
+  $("mkJAD").textContent=(aj?`네이버 최저 호가 기준${A.jL?" (저층 환산)":""} · 실거래 기반 ${rj?f1(rj)+"억":"–"}`:(ty.jLast?lastTxt(ty.jLast,"신규 계약"):"신규 계약 없음"))+(T&&Jj?` · 전세가율 ${(Jj/T*100).toFixed(1)}%`:"");
   if(document.activeElement!==$("askT"))$("askT").value=A.t??"";
   if(document.activeElement!==$("askJ"))$("askJ").value=A.j??"";
   $("askTL").checked=!!A.tL;$("askJL").checked=!!A.jL;
-  const et=askEff(A,"t"),ej=askEff(A,"j");const g=[];
-  if(et&&T)g.push(`매매 ${A.tL?"일반층 환산 "+f1(et)+"억 · ":""}추정 시세 대비 ${pctS((et/T[0]-1)*100)}`);
-  if(ej&&Jj)g.push(`전세 ${A.jL?"일반층 환산 "+f1(ej)+"억 · ":""}${pctS((ej/Jj[0]-1)*100)}`);
+  const et=at,ej=aj;const g=[];
+  if(et&&rt)g.push(`매매 호가가 실거래 기반보다 ${pctS((et/rt-1)*100)}`);
+  if(ej&&rj)g.push(`전세 호가가 ${pctS((ej/rj-1)*100)}`);
   $("mkAskD").textContent=g.length?g.join(" · "):"호가를 넣으면 보정 시세와의 차이가 나와요 (이 브라우저에 저장)";
 }
 /* 주변 단지 · 평형 격차 */
