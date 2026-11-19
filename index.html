@@ -142,6 +142,13 @@ td.n,th.n{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular
 .logic li{display:grid;grid-template-columns:26px 1fr;gap:8px;font-size:13px;color:var(--ink2)}
 .logic li::before{counter-increment:lg;content:counter(lg);font-family:var(--f-num);font-weight:700;font-size:12px;color:var(--jeon);background:var(--jeonSoft);border-radius:8px;height:22px;display:grid;place-items:center}
 .foot{font-size:12px;color:var(--muted)}
+.lnpair{display:inline-flex}
+.lnpair .btn:first-child{border-radius:999px 0 0 999px}
+.lnpair .btn.cp{border-radius:0 999px 999px 0;border-left:0;padding-inline:10px;font-size:12px}
+.inrow{display:flex;gap:6px}
+.inrow input{flex:1;min-width:0}
+.inrow .btn{white-space:nowrap;font-size:12px;padding:6px 10px}
+#cpMsg{margin:0;min-height:0}
 .linkform{display:grid;gap:10px;border:1px dashed var(--line);border-radius:14px;padding:12px 14px}
 .btn.linked{border-color:var(--jeon);color:var(--jeon)}
 .upd{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -312,11 +319,12 @@ th{font-size:12px}
     <input id="tName" class="bigsearch" type="search" autocomplete="off" placeholder="단지명 · 동 · 지역 (예: 리센츠, 후곡마을, 대림 코오롱, 동탄)" aria-label="단지 검색">
     <div class="market" id="market" hidden>
       <div class="mk-head"><div><strong id="mkName"></strong><span class="hint" id="mkSub"></span></div>
-        <div class="btnrow"><a class="btn" id="lnNaver" target="_blank" rel="noopener">네이버 부동산 ↗</a><a class="btn" id="lnHogang" target="_blank" rel="noopener">호갱노노 ↗</a><button class="btn" id="lnEdit" type="button">링크 연결</button></div></div>
+        <div class="btnrow"><span class="lnpair"><a class="btn" id="lnNaver" target="_blank" rel="noopener">네이버 부동산 ↗</a><button class="btn cp" type="button" data-copy="lnNaver" aria-label="네이버 부동산 링크 복사">복사</button></span><span class="lnpair"><a class="btn" id="lnHogang" target="_blank" rel="noopener">호갱노노 ↗</a><button class="btn cp" type="button" data-copy="lnHogang" aria-label="호갱노노 링크 복사">복사</button></span><button class="btn" id="lnEdit" type="button">링크 연결</button></div></div>
+      <p class="hint" id="cpMsg" aria-live="polite"></p>
       <div class="linkform" id="linkForm" hidden>
         <p class="hint">네이버 부동산·호갱노노에서 이 단지와 평형을 열어 둔 상태의 주소를 복사해 붙여 넣으세요. 저장하면 다음부터 버튼이 그 화면으로 바로 열려요 (평형별로 따로 저장, 이 브라우저에만 저장).</p>
-        <label class="field"><span>네이버 부동산 주소</span><input id="lnNaverUrl" type="url" placeholder="https://fin.land.naver.com/complexes/... 또는 https://new.land.naver.com/complexes/..."></label>
-        <label class="field"><span>호갱노노 주소</span><input id="lnHogangUrl" type="url" placeholder="https://hogangnono.com/apt/..."></label>
+        <label class="field"><span>네이버 부동산 주소</span><span class="inrow"><input id="lnNaverUrl" type="url" placeholder="https://fin.land.naver.com/complexes/... 또는 https://new.land.naver.com/complexes/..."><button class="btn cp" type="button" data-paste="lnNaverUrl">붙여넣기</button><button class="btn cp" type="button" data-copy="lnNaverUrl">복사</button></span></label>
+        <label class="field"><span>호갱노노 주소</span><span class="inrow"><input id="lnHogangUrl" type="url" placeholder="https://hogangnono.com/apt/..."><button class="btn cp" type="button" data-paste="lnHogangUrl">붙여넣기</button><button class="btn cp" type="button" data-copy="lnHogangUrl">복사</button></span></label>
         <div class="btnrow"><button class="btn primary" id="lnSave" type="button">저장</button><button class="btn" id="lnClear" type="button">연결 해제</button><span class="hint" id="lnMsg"></span></div>
       </div>
       <div class="chips-row"><span class="hint">평형</span><div class="chips" id="areaChips" role="group" aria-label="평형 선택"></div></div>
@@ -748,6 +756,20 @@ function renderLinks(a){
   if(document.activeElement!==$("lnNaverUrl"))$("lnNaverUrl").value=L.naver||"";
   if(document.activeElement!==$("lnHogangUrl"))$("lnHogangUrl").value=L.hogang||"";
 }
+// 복사: 링크 버튼은 href, 입력칸은 값. 클립보드가 막힌 화면에서는 입력칸에 넣고 선택해 둠 (길게 눌러 복사)
+function flash(t){const m=$("cpMsg");m.textContent=t;clearTimeout(flash.t);flash.t=setTimeout(()=>m.textContent="",3000)}
+function fallbackSelect(text){const el=$("lnNaverUrl");$("linkForm").hidden=false;const tmp=document.createElement("textarea");tmp.value=text;tmp.setAttribute("readonly","");tmp.style.cssText="position:fixed;left:-9999px";document.body.appendChild(tmp);tmp.select();
+  let ok=false;try{ok=document.execCommand("copy")}catch(e){}tmp.remove();return ok}
+document.addEventListener("click",e=>{
+  const c=e.target.closest("[data-copy]"),p=e.target.closest("[data-paste]");
+  if(c){const src=$(c.dataset.copy);const text=src.tagName==="A"?src.href:src.value;if(!text){flash("복사할 주소가 없어요");return}
+    const done=()=>flash("복사했어요: "+text.slice(0,60)+(text.length>60?"…":""));
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done).catch(()=>{fallbackSelect(text)?done():flash("이 화면에서는 자동 복사가 막혀 있어요. 주소: "+text)});
+    else fallbackSelect(text)?done():flash("주소: "+text);}
+  if(p){const inp=$(p.dataset.paste);
+    if(navigator.clipboard&&navigator.clipboard.readText)navigator.clipboard.readText().then(t=>{inp.value=(t||"").trim();inp.focus();flash(t?"붙여넣었어요. 저장을 눌러 주세요":"클립보드가 비어 있어요")}).catch(()=>{inp.focus();flash("이 화면에서는 자동 붙여넣기가 막혀 있어요. 칸을 길게 눌러 붙여넣기 해 주세요")});
+    else{inp.focus();flash("칸을 길게 눌러 붙여넣기 해 주세요")}}
+});
 $("lnEdit").onclick=()=>{$("linkForm").hidden=!$("linkForm").hidden;$("lnMsg").textContent=""};
 $("lnSave").onclick=()=>{
   const n=$("lnNaverUrl").value.trim(),h=$("lnHogangUrl").value.trim();
