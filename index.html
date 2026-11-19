@@ -146,6 +146,7 @@ td.n,th.n{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular
 .lnpair .btn:first-child{border-radius:999px 0 0 999px}
 .lnpair .btn.cp{border-radius:0 999px 999px 0;border-left:0;padding-inline:10px;font-size:12px}
 .inrow{display:flex;gap:6px}
+.pkov{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted);margin-top:4px}.pkov input{width:76px;padding:3px 6px}
 .howto{font-size:13px;color:var(--ink2);background:var(--bg);border-radius:12px;padding:10px 14px}
 .howto p{margin:0 0 4px}.howto ol{margin:4px 0;padding-left:18px;display:grid;gap:3px}
 .inrow input{flex:1;min-width:0}
@@ -346,7 +347,7 @@ th{font-size:12px}
         <div><span class="l">매매 최근 3개월 중위</span><span class="v" id="mkT3"></span><span class="d" id="mkT3D"></span></div>
         <div><span class="l">신규 전세 최근 3개월 중위</span><span class="v" id="mkJ3"></span><span class="d" id="mkJ3D"></span></div>
         <div class="pk"><span class="l">2021~22 상승장 고점 실거래</span><span class="v mv" id="mk21"></span><span class="d" id="mk21D"></span></div>
-        <div class="pk"><span class="l">2021 고점 전세가율 (고점 매매 ÷ 대표 전세)</span><span class="v jv" id="mk21R"></span><span class="d" id="mk21RD"></span></div>
+        <div class="pk"><span class="l">2021 고점 전세가율 (고점 매매 ÷ 대표 전세)</span><span class="v jv" id="mk21R"></span><span class="d" id="mk21RD"></span><label class="pkov">고점 전세 직접 <input id="pkJ" type="number" step="0.1" placeholder="억"></label></div>
         <div class="pk"><span class="l">역대 최고 실거래 (2020~)</span><span class="v" id="mkTop"></span><span class="d" id="mkTopD"></span></div>
         <div hidden><span id="mkTPk"></span><span id="mkTPkD"></span><span id="mkJPk"></span><span id="mkJPkD"></span></div>
       </div>
@@ -707,7 +708,8 @@ function applyMarket(){
 }
 function peakRatio21(ty){
   // 1순위: 2021~22 고점 실거래 매매가 ÷ 그 상승장 동안 가장 많이 거래된 높은 전세가
-  if(ty.pk21){const p=ty.pk21;return {r:p[0],src:"trade",t:p[1],date:p[2],j:p[3],n:p[4],how:p[5],cnt:p[6]}}
+  const ov=(S.pkJ||{})[askKey()];   // 사용자가 직접 정한 고점 전세 대표가
+  if(ty.pk21){const p=ty.pk21;const j=isFinite(ov)&&ov>0?ov:p[3];return {r:Math.round(j/p[1]*1000)/10,src:"trade",t:p[1],date:p[2],j,auto:p[3],n:p[4],w:p[5],cnt:p[6],manual:isFinite(ov)&&ov>0}}
   // 거래가 부족하면 고점 분기 전후 평균으로 대체
   const q=(ty.q||[]).filter(x=>x[0]>="2021Q1"&&x[0]<="2022Q4");
   const pk=q.reduce((b,x)=>x[1]!=null&&(!b||x[1]>b[1])?x:b,null);if(!pk)return null;
@@ -740,8 +742,8 @@ function renderMarket(m){
   $("mkTop").textContent=ty.top?ty.top[1]+"억":"–";
   $("mk21").textContent=ty.top21?ty.top21[1]+"억":"–";
   $("mk21D").textContent=ty.top21?`${ymd(ty.top21[0])} · ${ty.top21[2]}층 · 추정 시세는 ${vsNow(ty.top21[1],nowP).replace("현재 대비 ","")}`:"2021~22년 거래 없음";
-  const h=t.hist;$("mk21R").textContent=h?h.r+"%":"–";
-  $("mk21RD").textContent=h?(h.src==="trade"?`고점 매매 ${h.t}억 (${ymd(h.date)}) ÷ 2021~22 전세 대표가 ${h.j}억 (${h.how==="mode"?`전세 ${h.n}건 중 ${h.j}억대 ${h.cnt}건으로 가장 많이 거래`:`전세 ${h.n}건 중 상위 25% 가격`}) → 예상 고점 계산에 사용`:`${h.q.replace("Q"," ")}분기 전후 매매 평균 ${h.t}억 / 전세 평균 ${h.j}억 (고점 시기 전세 거래 없음) → 예상 고점 계산에 사용`):"그때 거래가 부족해 입지 등급 기본값 사용";
+  const h=t.hist;$("mk21R").textContent=h?h.r+"%":"–";if(document.activeElement!==$("pkJ"))$("pkJ").value=(S.pkJ||{})[askKey()]??"";
+  $("mk21RD").textContent=h?(h.src==="trade"?(h.manual?`고점 매매 ${h.t}억 (${ymd(h.date)}) ÷ 직접 정한 전세 ${f1(h.j)}억 (자동 계산값 ${h.auto}억)`:`고점 매매 ${h.t}억 (${ymd(h.date)}) ÷ 그 전후 ±${h.w}개월 전세 ${h.n}건 중 중간값 이상 ${h.cnt}건 평균 ${h.j}억`)+" → 예상 고점 계산에 사용":`${h.q.replace("Q"," ")}분기 전후 매매 평균 ${h.t}억 / 전세 평균 ${h.j}억 (고점 시기 전세 거래 없음) → 예상 고점 계산에 사용`):"그때 거래가 부족해 입지 등급 기본값 사용";
   $("mkTopD").textContent=ty.top?`${ymd(ty.top[0])} · ${ty.top[2]}층 · 추정 시세는 ${vsNow(ty.top[1],nowP).replace("현재 대비 ","")}`:"";
   $("mkTPk").textContent=ty.tPk?ty.tPk[1]+"억":"–";
   $("mkTPkD").textContent=ty.tPk?`${ymd(ty.tPk[0])} 전후 3개월 · ${vsNow(ty.tPk[1],nowP)}`:"거래가 적어 계산 불가";
@@ -785,6 +787,7 @@ document.addEventListener("click",e=>{
     if(navigator.clipboard&&navigator.clipboard.readText)navigator.clipboard.readText().then(t=>{inp.value=pickUrl(t);inp.focus();flash(t?"붙여넣었어요. 저장을 눌러 주세요":"클립보드가 비어 있어요")}).catch(()=>{inp.focus();flash("이 화면에서는 자동 붙여넣기가 막혀 있어요. 칸을 길게 눌러 붙여넣기 해 주세요")});
     else{inp.focus();flash("칸을 길게 눌러 붙여넣기 해 주세요")}}
 });
+$("pkJ").addEventListener("input",e=>{S.pkJ=S.pkJ||{};const v=parseFloat(e.target.value);if(isFinite(v)&&v>0)S.pkJ[askKey()]=v;else delete S.pkJ[askKey()];render("pkJ")});
 $("lnEdit").onclick=()=>{$("linkForm").hidden=!$("linkForm").hidden;$("lnMsg").textContent=""};
 $("lnSave").onclick=()=>{
   const n=$("lnNaverUrl").value.trim()?pickUrl($("lnNaverUrl").value):"",h=$("lnHogangUrl").value.trim()?pickUrl($("lnHogangUrl").value):"";
