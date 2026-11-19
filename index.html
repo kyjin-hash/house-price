@@ -139,6 +139,9 @@ td.n,th.n{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular
 .logic li{display:grid;grid-template-columns:26px 1fr;gap:8px;font-size:13px;color:var(--ink2)}
 .logic li::before{counter-increment:lg;content:counter(lg);font-family:var(--f-num);font-weight:700;font-size:12px;color:var(--jeon);background:var(--jeonSoft);border-radius:8px;height:22px;display:grid;place-items:center}
 .foot{font-size:12px;color:var(--muted)}
+.linkform{display:grid;gap:10px;border:1px dashed var(--line);border-radius:14px;padding:12px 14px}
+.btn.linked{border-color:var(--jeon);color:var(--jeon)}
+.upd{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}
 .formula{margin:0;font-size:13px;color:var(--ink2);background:var(--bg);border-radius:12px;padding:10px 14px;line-height:1.7}
 .formula b{color:var(--ink);font-family:var(--f-num)}
 .hchips{display:flex;gap:8px;flex-wrap:wrap}
@@ -271,7 +274,13 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     <input id="tName" class="bigsearch" type="search" autocomplete="off" placeholder="단지명 · 동 · 지역 (예: 리센츠, 후곡마을, 대림 코오롱, 동탄)" aria-label="단지 검색">
     <div class="market" id="market" hidden>
       <div class="mk-head"><div><strong id="mkName"></strong><span class="hint" id="mkSub"></span></div>
-        <div class="btnrow"><a class="btn" id="lnNaver" target="_blank" rel="noopener">네이버 부동산 호가 ↗</a><a class="btn" id="lnHogang" target="_blank" rel="noopener">호갱노노 찾기 ↗</a></div></div>
+        <div class="btnrow"><a class="btn" id="lnNaver" target="_blank" rel="noopener">네이버 부동산 ↗</a><a class="btn" id="lnHogang" target="_blank" rel="noopener">호갱노노 ↗</a><button class="btn" id="lnEdit" type="button">링크 연결</button></div></div>
+      <div class="linkform" id="linkForm" hidden>
+        <p class="hint">네이버 부동산·호갱노노에서 이 단지와 평형을 열어 둔 상태의 주소를 복사해 붙여 넣으세요. 저장하면 다음부터 버튼이 그 화면으로 바로 열려요 (평형별로 따로 저장, 이 브라우저에만 저장).</p>
+        <label class="field"><span>네이버 부동산 주소</span><input id="lnNaverUrl" type="url" placeholder="https://fin.land.naver.com/complexes/... 또는 https://new.land.naver.com/complexes/..."></label>
+        <label class="field"><span>호갱노노 주소</span><input id="lnHogangUrl" type="url" placeholder="https://hogangnono.com/apt/..."></label>
+        <div class="btnrow"><button class="btn primary" id="lnSave" type="button">저장</button><button class="btn" id="lnClear" type="button">연결 해제</button><span class="hint" id="lnMsg"></span></div>
+      </div>
       <div class="chips-row"><span class="hint">평형</span><div class="chips" id="areaChips" role="group" aria-label="평형 선택"></div></div>
       <div class="mk-grid">
         <div class="est"><span class="l">매매 추정 시세 <span class="autotag">보정</span></span><span class="v mv" id="mkTA"></span><span class="d" id="mkTAD"></span></div>
@@ -656,7 +665,7 @@ const vsNow=(pk,now)=>pk&&now?`현재 대비 ${now>=pk?"+":""}${((now/pk-1)*100)
 function renderMarket(m){
   const st=$("dataStatus");
   st.innerHTML=DB===null?"실거래 데이터 불러오는 중…":DB===false?'<span class="pill warn">실거래 미연결</span> 데이터 파일이 아직 없어요.'
-    :`<span class="pill good">실거래 연결</span> 국토부 실거래 · ${DB.updated} 기준 · 서울·경기·인천 단지 ${DB.list.length.toLocaleString()}개 · ${ymd(DB.from)}~${ymd(DB.to)}${DB.partial?" · 일부 기간 수집 중":""}`;
+    :`<span class="upd"><span class="pill good">실거래 연결</span> 국토부 실거래 · ${DB.updated} 업데이트 · 서울·경기·인천 단지 ${DB.list.length.toLocaleString()}개 · ${ymd(DB.from)}~${ymd(DB.to)}${DB.partial?" · 일부 기간 수집 중":""} · 매일 06:00 자동 갱신 <a class="btn" href="https://github.com/kyjin-hash/house-price/actions/workflows/update.yml" target="_blank" rel="noopener">지금 업데이트 ↗</a></span>`;
   $("market").hidden=!m;
   if(!m){if(S.t.apt&&DB)$("dataStatus").insertAdjacentHTML("beforeend"," · 단지 상세 불러오는 중…");return}
   const {a,ty}=m,t=S.t;
@@ -687,12 +696,30 @@ function renderMarket(m){
   document.querySelectorAll("#basis button").forEach(b=>b.setAttribute("aria-pressed",!t.manualPrice&&b.dataset.b===(t.basis||"adj")));
   document.querySelectorAll("#jbasis button").forEach(b=>b.setAttribute("aria-pressed",!t.manualJeon&&b.dataset.j===(t.jbasis||"adj")));
   $("tAsk").hidden=t.basis!=="ask";if(document.activeElement!==$("tAsk"))$("tAsk").value=t.ask??"";
-  // 국토부 단지명은 '후곡마을(대우)'처럼 괄호에 건설사가 들어가 네이버 부동산 단지명과 다름 → 괄호를 풀어 동 이름과 함께 네이버 통합검색 (부동산 단지 카드·매물 호가로 연결)
-  $("lnNaver").href="https://search.naver.com/search.naver?query="+encodeURIComponent(a.d+" "+a.n.replace(/[()]/g," ").replace(/\s+/g," ").trim()+" 아파트 매물");
-  $("lnHogang").href="https://search.naver.com/search.naver?query="+encodeURIComponent("호갱노노 "+a.d+" "+a.n);
   drawHistory(ty);renderNeighbors(a,ty);renderPyeong(a,ty);
 }
+const LINK_OK={naver:/^https:\/\/(fin|new|m)\.land\.naver\.com\//,hogang:/^https:\/\/(www\.)?hogangnono\.com\//};
+function renderLinks(a){
+  S.links=S.links||{};const L=S.links[askKey()]||{};
+  const nq=a.d+" "+a.n.replace(/[()]/g," ").replace(/\s+/g," ").trim();
+  const nv=$("lnNaver"),hg=$("lnHogang");
+  nv.href=L.naver||"https://search.naver.com/search.naver?query="+encodeURIComponent(nq+" 아파트 매물");
+  hg.href=L.hogang||"https://search.naver.com/search.naver?query="+encodeURIComponent("호갱노노 "+nq);
+  nv.textContent=L.naver?"네이버 부동산 매물 ↗":"네이버 부동산 (검색) ↗";nv.classList.toggle("linked",!!L.naver);
+  hg.textContent=L.hogang?"호갱노노 단지 ↗":"호갱노노 (검색) ↗";hg.classList.toggle("linked",!!L.hogang);
+  if(document.activeElement!==$("lnNaverUrl"))$("lnNaverUrl").value=L.naver||"";
+  if(document.activeElement!==$("lnHogangUrl"))$("lnHogangUrl").value=L.hogang||"";
+}
+$("lnEdit").onclick=()=>{$("linkForm").hidden=!$("linkForm").hidden;$("lnMsg").textContent=""};
+$("lnSave").onclick=()=>{
+  const n=$("lnNaverUrl").value.trim(),h=$("lnHogangUrl").value.trim();
+  if(n&&!LINK_OK.naver.test(n)){$("lnMsg").textContent="네이버 부동산 주소(land.naver.com)가 아니에요";return}
+  if(h&&!LINK_OK.hogang.test(h)){$("lnMsg").textContent="호갱노노 주소(hogangnono.com)가 아니에요";return}
+  S.links=S.links||{};S.links[askKey()]={naver:n||undefined,hogang:h||undefined};$("lnMsg").textContent="저장했어요";render();
+};
+$("lnClear").onclick=()=>{S.links=S.links||{};delete S.links[askKey()];$("lnMsg").textContent="연결을 해제했어요";render()};
 function renderEst(a,ty){
+  renderLinks(a);
   const T=ty.tAdj,Jj=ty.jAdj;
   $("mkTA").textContent=T?T[0]+"억":"–";
   $("mkTAD").textContent=T?`최근 ${T[1]}건 시점·층 보정 · 마지막 거래 ${ymd(T[2])}`:"최근 1년 거래 없음";
