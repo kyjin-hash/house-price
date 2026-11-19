@@ -139,6 +139,8 @@ td.n,th.n{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular
 .logic li{display:grid;grid-template-columns:26px 1fr;gap:8px;font-size:13px;color:var(--ink2)}
 .logic li::before{counter-increment:lg;content:counter(lg);font-family:var(--f-num);font-weight:700;font-size:12px;color:var(--jeon);background:var(--jeonSoft);border-radius:8px;height:22px;display:grid;place-items:center}
 .foot{font-size:12px;color:var(--muted)}
+.formula{margin:0;font-size:13px;color:var(--ink2);background:var(--bg);border-radius:12px;padding:10px 14px;line-height:1.7}
+.formula b{color:var(--ink);font-family:var(--f-num)}
 .hchips{display:flex;gap:8px;flex-wrap:wrap}
 .hchip{display:inline-flex;gap:6px;align-items:baseline;background:var(--hero2);border-radius:999px;padding:6px 14px;font-size:13px;color:var(--heroMuted)}
 .hchip b{color:var(--heroInk);font-family:var(--f-num);font-size:15px}
@@ -281,9 +283,10 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <div><span class="l">최근 실거래</span><span class="v" id="mkLast"></span><span class="d" id="mkLastD"></span></div>
         <div><span class="l">매매 최근 3개월 중위</span><span class="v" id="mkT3"></span><span class="d" id="mkT3D"></span></div>
         <div><span class="l">신규 전세 최근 3개월 중위</span><span class="v" id="mkJ3"></span><span class="d" id="mkJ3D"></span></div>
-        <div class="pk"><span class="l">고점 실거래가 (최고가)</span><span class="v mv" id="mkTop"></span><span class="d" id="mkTopD"></span></div>
-        <div class="pk"><span class="l">매매 고점 평균 (3개월)</span><span class="v" id="mkTPk"></span><span class="d" id="mkTPkD"></span></div>
-        <div class="pk"><span class="l">신규 전세 고점 평균 (3개월)</span><span class="v jv" id="mkJPk"></span><span class="d" id="mkJPkD"></span></div>
+        <div class="pk"><span class="l">2021~22 상승장 고점 실거래</span><span class="v mv" id="mk21"></span><span class="d" id="mk21D"></span></div>
+        <div class="pk"><span class="l">2021 고점 당시 전세가율</span><span class="v jv" id="mk21R"></span><span class="d" id="mk21RD"></span></div>
+        <div class="pk"><span class="l">역대 최고 실거래 (2020~)</span><span class="v" id="mkTop"></span><span class="d" id="mkTopD"></span></div>
+        <div hidden><span id="mkTPk"></span><span id="mkTPkD"></span><span id="mkJPk"></span><span id="mkJPkD"></span></div>
       </div>
       <details class="how"><summary>추정 시세는 어떻게 계산하나요?</summary>
         <p>실거래는 신고까지 최대 30일 걸리고, 거래가 뜸한 단지는 몇 달 전 가격만 남아 있어 호가와 벌어집니다. 그래서 세 가지를 보정합니다.</p>
@@ -333,6 +336,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <div class="kpi"><span class="l">고점 시 전세가</span><span class="v" id="kJeon"></span><span class="d" id="kJeonD"></span></div>
         <div class="kpi hero"><span class="l">예상 고점 매매가</span><span class="v" id="kPeak"></span><span class="d" id="kPeakD"></span></div>
       </div>
+      <p class="formula" id="formula"></p>
       <div class="scmini" id="scMini" role="group" aria-label="시나리오별 예상 고점"></div>
       <div class="chartbox" id="chartbox">
         <svg id="chart" viewBox="0 0 560 280" role="img" aria-label="전세가 상승과 전세가율별 매매가 범위"></svg>
@@ -520,13 +524,13 @@ const f1=v=>isFinite(v)?(Math.round(v*10)/10).toFixed(1):"–";
 const eok=v=>isFinite(v)?f1(v)+"억":"–";
 const pct=v=>isFinite(v)?f1(v)+"%":"–";
 
-function autoParams(tier,jeon){return autoParamsFor(S.scen,tier,jeon)}
+function autoParams(tier,jeon){return autoParamsFor(S.scen,tier,jeon,S.t.hist)}
 function params(){
   const t=S.t,a=autoParams(t.tier,t.jeon);
   return {years:t.years??a.years,grow:t.grow??a.grow,floor:t.floor??a.floor,auto:a};
 }
 function project(price,jeon,tier,p){
-  const a=p||autoParams(tier,jeon);
+  const a=p||autoParamsFor(S.scen,tier,jeon);
   const j=jeon*Math.pow(1+a.grow/100,a.years);
   return {j,peak:j/(a.floor/100),ratio:jeon/price*100,a};
 }
@@ -630,13 +634,23 @@ document.querySelectorAll("#jbasis button").forEach(b=>b.onclick=()=>{S.t.jbasis
   o[id==="askT"?"t":"j"]=isFinite(v)?v:undefined;if(id==="askT"&&isFinite(v)){S.t.basis="ask";S.t.ask=askEff(o,"t");S.t.manualPrice=false}if(id==="askJ"&&isFinite(v)){S.t.jbasis="ask";S.t.manualJeon=false}render(id)}));
 
 function applyMarket(){
-  const t=S.t;if(!DB||!t.apt)return null;
+  const t=S.t;if(!DB||!t.apt){t.hist=null;return null}
   const a=getApt(t.apt);if(!a)return null;
   const ty=pickType(a,t.area);if(t.area==null)t.area=ty.a;
+  t.hist=peakRatio21(ty); // 이 단지가 2021 고점 때 실제로 내려갔던 전세가율
   S.asks=S.asks||{};const A=S.asks[askKey()]||{};
   if(!t.manualPrice){const p=t.basis==="ask"?(t.ask??askEff(A,"t")):priceOf(ty,t.basis||"adj");if(isFinite(p)&&p>0)t.price=p}
   if(!t.manualJeon){const j=t.jbasis==="ask"?askEff(A,"j"):jeonOf(ty,t.jbasis||"adj");if(isFinite(j)&&j>0)t.jeon=j}
   return {a,ty};
+}
+function peakRatio21(ty){
+  const q=(ty.q||[]).filter(x=>x[0]>="2021Q1"&&x[0]<="2022Q4");
+  const pk=q.reduce((b,x)=>x[1]!=null&&(!b||x[1]>b[1])?x:b,null);if(!pk)return null;
+  const i=q.indexOf(pk),w=q.slice(Math.max(0,i-1),i+2);
+  const tp=w.filter(x=>x[1]!=null).map(x=>x[1]),jp=w.filter(x=>x[2]!=null).map(x=>x[2]);
+  if(!tp.length||!jp.length)return null;
+  const av=a=>a.reduce((s,v)=>s+v,0)/a.length;
+  return {r:Math.round(av(jp)/av(tp)*1000)/10,q:pk[0],t:Math.round(av(tp)*10)/10,j:Math.round(av(jp)*10)/10};
 }
 const vsNow=(pk,now)=>pk&&now?`현재 대비 ${now>=pk?"+":""}${((now/pk-1)*100).toFixed(1)}%`:"";
 function renderMarket(m){
@@ -659,6 +673,10 @@ function renderMarket(m){
   $("mkJ3").textContent=ty.j3!=null?ty.j3+"억":"–";
   $("mkJ3D").textContent=ty.j3!=null?`전세가율 ${nowP?(ty.j3/nowP*100).toFixed(1)+"%":"–"} · 월세 ${ty.nw}건`:(ty.j12!=null?"최근 1년 중위 "+ty.j12+"억":"최근 거래 없음");
   $("mkTop").textContent=ty.top?ty.top[1]+"억":"–";
+  $("mk21").textContent=ty.top21?ty.top21[1]+"억":"–";
+  $("mk21D").textContent=ty.top21?`${ymd(ty.top21[0])} · ${ty.top21[2]}층 · 추정 시세는 ${vsNow(ty.top21[1],nowP).replace("현재 대비 ","")}`:"2021~22년 거래 없음";
+  const h=t.hist;$("mk21R").textContent=h?h.r+"%":"–";
+  $("mk21RD").textContent=h?`${h.q.replace("Q"," ")}분기 전후 · 매매 평균 ${h.t}억 / 전세 평균 ${h.j}억 → 예상 고점 계산에 사용`:"그때 거래가 부족해 입지 등급 기본값 사용";
   $("mkTopD").textContent=ty.top?`${ymd(ty.top[0])} · ${ty.top[2]}층 · 추정 시세는 ${vsNow(ty.top[1],nowP).replace("현재 대비 ","")}`:"";
   $("mkTPk").textContent=ty.tPk?ty.tPk[1]+"억":"–";
   $("mkTPkD").textContent=ty.tPk?`${ymd(ty.tPk[0])} 전후 3개월 · ${vsNow(ty.tPk[1],nowP)}`:"거래가 적어 계산 불가";
@@ -909,7 +927,8 @@ function drawCycle(mr){
   sv.innerHTML=g+ln(mr.upQ,"cup","상급지")+ln(mr.lowQ,"clow","하급지");
 }
 /* ---------- 시나리오 비교 ---------- */
-function autoParamsFor(sk,tier,jeon){const sc=SCEN[sk];return {years:sc.years,grow:jeon>=12?sc.gHi:sc.gLo,floor:Math.min(75,TIERS[tier].floor+sc.floorAdj)}}
+function autoParamsFor(sk,tier,jeon,hist){const sc=SCEN[sk];const base=hist&&hist.r>=30&&hist.r<=85?hist.r:TIERS[tier].floor;
+  return {years:sc.years,grow:jeon>=12?sc.gHi:sc.gLo,floor:Math.round(Math.min(85,base+sc.floorAdj)*10)/10,src:hist&&hist.r>=30&&hist.r<=85?"hist":"tier"}}
 function scenPath(t,sk,p){
   const r0=t.jeon/t.price*100,pts=[];
   for(let k=0;k<=36;k++){const y=k/10;const yy=Math.min(y,p.years);
@@ -923,7 +942,7 @@ function renderScen(t){
   const box=$("scCards"),sv=$("scChart");if(!box)return;
   const risk=S.sig.loan>=5.5||S.sig.conv>=6;
   const like={hold:risk?"대안":"기본 시나리오",crash:"대안 · 미국 경착륙 시",rev:risk?"위험 신호 감지":"가능성 낮음"};
-  const rows=Object.keys(SCEN).map(sk=>{const p=sk===S.scen?params():autoParamsFor(sk,t.tier,t.jeon);const path=scenPath(t,sk,p);const peak=path[path.length-1][1];return {sk,p,path,peak}});
+  const rows=Object.keys(SCEN).map(sk=>{const p=sk===S.scen?params():autoParamsFor(sk,t.tier,t.jeon,t.hist);const path=scenPath(t,sk,p);const peak=path[path.length-1][1];return {sk,p,path,peak}});
   box.innerHTML=rows.map(r=>`<button class="sc-card" data-s="${r.sk}" aria-pressed="${r.sk===S.scen}"><span class="sc-dot" style="background:var(--${SC_COL[r.sk]})"></span><span class="sc-like">${like[r.sk]}</span><strong>${SCEN[r.sk].n}</strong>
     <span class="sc-v">${f1(r.peak)}<small>억</small></span><span class="sc-d ${r.peak>=t.price?"up":"dn"}">${r.peak>=t.price?"+":""}${f1((r.peak/t.price-1)*100)}% · ${r.p.years}년 뒤</span>
     <span class="sc-a">전세 연 ${r.p.grow}% · 고점 전세가율 ${r.p.floor}%</span></button>`).join("");
@@ -980,7 +999,7 @@ function render(focusId){
   [["tPrice",t.price],["tJeon",t.jeon],["tYears",p.years],["tGrow",p.grow],["tFloor",p.floor]].forEach(([id,v])=>{if(focusId!==id)$(id).value=v});
   const manual=[t.years,t.grow,t.floor].some(v=>v!=null);
   $("autoHint").textContent=(manual?"일부 값을 직접 입력했어요. ":"시나리오 기본값 적용 중. ")+
-    `${sc.n} 기준: ${p.auto.years}년, 전세 ${t.jeon>=12?"12억 이상":"12억 미만"}이라 연 ${p.auto.grow}%, ${TIERS[t.tier].n} 고점 전세가율 ${p.auto.floor}%.`;
+    `${sc.n} 기준: ${p.auto.years}년, 전세 ${t.jeon>=12?"12억 이상":"12억 미만"}이라 연 ${p.auto.grow}%, 고점 전세가율 ${p.auto.floor}% (${p.auto.src==="hist"?"이 단지 2021 고점 당시 "+t.hist.r+"%"+(SCEN[S.scen].floorAdj?" "+(SCEN[S.scen].floorAdj>0?"+":"")+SCEN[S.scen].floorAdj+"%p 시나리오 조정":""):TIERS[t.tier].n+" 기본값"}).`;
   const pr=project(t.price,t.jeon,t.tier,p);
   $("scName").textContent=t.name||"대상 단지";renderScen(t);
   $("resTitle").textContent=(t.name||"대상 단지")+" 예상 고점";
@@ -992,6 +1011,8 @@ function render(focusId){
   $("kPeak").textContent=eok(pr.peak);
   const up=(pr.peak/t.price-1)*100;
   $("kPeakD").textContent=`현재 대비 ${up>=0?"+":""}${f1(up)}% · 전세가율 ${p.floor}%`;
+  $("formula").innerHTML=`지금 전세 <b>${f1(t.jeon)}억</b> × (1+${p.grow}%)<sup>${p.years}년</sup> = 고점 때 전세 <b>${f1(pr.j)}억</b><br>
+    ÷ 고점 전세가율 <b>${p.floor}%</b> ${p.auto.src==="hist"&&t.floor==null?"(이 단지가 2021년 고점에 실제로 내려갔던 비율)":"(입지 등급 기본값 · 직접 수정 가능)"} = 예상 고점 <b>${f1(pr.peak)}억</b>`;
   chart(t,p);
   // 민감도
   const rs=[35,40,45,50,55,60],gs=[p.grow-2,p.grow,p.grow+2];
