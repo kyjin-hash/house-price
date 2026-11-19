@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
-<title>집값 예측판</title>
+<title>부동산 시그널</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
 <style>
@@ -139,6 +139,24 @@ td.n,th.n{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular
 .logic li{display:grid;grid-template-columns:26px 1fr;gap:8px;font-size:13px;color:var(--ink2)}
 .logic li::before{counter-increment:lg;content:counter(lg);font-family:var(--f-num);font-weight:700;font-size:12px;color:var(--jeon);background:var(--jeonSoft);border-radius:8px;height:22px;display:grid;place-items:center}
 .foot{font-size:12px;color:var(--muted)}
+.hchips{display:flex;gap:8px;flex-wrap:wrap}
+.hchip{display:inline-flex;gap:6px;align-items:baseline;background:var(--hero2);border-radius:999px;padding:6px 14px;font-size:13px;color:var(--heroMuted)}
+.hchip b{color:var(--heroInk);font-family:var(--f-num);font-size:15px}
+.hchip.main{background:var(--mae);color:#fff}.hchip.main b{color:#fff}
+details.more>summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;list-style:none}
+details.more>summary::-webkit-details-marker{display:none}
+details.more>summary::before{content:"▸";color:var(--muted)}
+details.more[open]>summary::before{content:"▾"}
+.scmini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.scmini button{all:unset;box-sizing:border-box;cursor:pointer;border:1px solid var(--line);border-radius:12px;padding:8px 10px;display:grid;gap:1px}
+.scmini button:focus-visible{outline:2px solid var(--jeon);outline-offset:2px}
+.scmini button[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.scmini .n{font-size:12px;color:var(--ink2);display:flex;gap:6px;align-items:center}
+.scmini .n i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.scmini .v{font-family:var(--f-num);font-size:18px;font-weight:700}
+.scmini .d{font-size:11px;font-weight:700}.scmini .d.pu{color:var(--mae)}.scmini .d.pd{color:var(--jeon)}
+.stats[hidden]{display:none}
+.lowchk{display:flex;gap:4px;align-items:center;font-size:11px;color:var(--muted);font-weight:500}
 .mk-grid .est{background:var(--panel);border:1.5px solid var(--ink)}
 .mk-grid .ask{background:var(--panel);border:1.5px dashed var(--line)}
 .mk-grid .askrow{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0;background:none;padding:0}
@@ -224,9 +242,9 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
 <header class="hero"><div class="hero-in">
   <div class="head">
     <div>
-      <div class="eyebrow">부동산은 비교학문 · 전세가가 내재가치</div>
-      <h1>집값 예측판</h1>
-      <p class="sub">전세가는 실수요라 연 4~5%씩 오르고, 매매가는 전세가율이 어디까지 내려가느냐로 천장이 정해집니다. 이미 오른 비교 단지의 배율까지 겹쳐서 예상가를 잡습니다.</p>
+      <div class="eyebrow">전세가율로 읽는 집값</div>
+      <h1>부동산 시그널</h1>
+      <p class="sub">실거래 추정 시세와 전세가율로 단지의 예상 고점을 계산합니다.</p>
     </div>
     <div class="seg" id="scen" role="group" aria-label="거시 시나리오">
       <button data-s="hold" aria-pressed="true">고금리 유지</button>
@@ -234,7 +252,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       <button data-s="rev" aria-pressed="false">역전세</button>
     </div>
   </div>
-  <div class="stats">
+  <div class="hchips" id="heroChips"></div>
+  <div class="stats" hidden>
     <div class="stat main"><span class="l" id="hName">종합 예상가</span><span class="v" id="hPeak"></span><span class="d" id="hPeakD"></span></div>
     <div class="stat jeon"><span class="l">대상 단지 전세가율</span><span class="v" id="hRatio"></span><span class="d" id="hRatioD"></span></div>
     <div class="stat"><span class="l">상급지 전세가율 → 40%</span><span class="v" id="hTop"></span><span class="d" id="hTopD"></span></div>
@@ -244,56 +263,6 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
 </div></header>
 
 <div class="wrap">
-  <!-- 금리 신호 -->
-  <section class="panel">
-    <div class="head"><h2>역전세 · 속도 신호</h2><span class="hint">숫자를 바꾸면 경고와 시나리오 추천이 바로 바뀝니다</span></div>
-    <div class="signals">
-      <div class="sig">
-        <label for="rLoan">전세대출 금리</label>
-        <div class="row"><input id="rLoan" type="number" step="0.05" value="4.7"><span>%</span><span id="pLoan"></span></div>
-        <div class="meter" id="mLoan"><i></i><b></b></div>
-        <p class="hint">5.5% 넘으면 역전세 위험. 지금 선에서 +0.5%p 정도가 한계로 봄</p>
-      </div>
-      <div class="sig">
-        <label for="rConv">전월세 전환율</label>
-        <div class="row"><input id="rConv" type="number" step="0.05" value="5.5"><span>%</span><span id="pConv"></span></div>
-        <div class="meter" id="mConv"><i></i><b></b></div>
-        <p class="hint">6%대 위로 가면 월세 전환 가속, 전세 수요 약화</p>
-      </div>
-      <div class="sig">
-        <label for="rTop">상급지 기준 전세가율</label>
-        <div class="row"><input id="rTop" type="number" step="0.5" value="54.8"><span>%</span><span id="pTop"></span></div>
-        <div class="meter" id="mTop"><i></i><b></b></div>
-        <p class="hint">잠실 리센츠 31억 / 17억 = 54.8%. 40% 아래면 상급지 상승 마무리</p>
-      </div>
-      <div class="sig">
-        <label for="rLow">하급지 평균 전세가율</label>
-        <div class="row"><input id="rLow" type="number" step="0.5" value="62"><span>%</span><span id="pLow"></span></div>
-        <div class="meter" id="mLow"><i></i><b></b></div>
-        <p class="hint">60% 이상이면 전월세 급감 시 매가 급등 여력. 50% 아래면 외곽까지 상승 완료</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- 사이클 -->
-  <section class="panel">
-    <div class="head"><h2>사이클 단계 · 현재 위치 추정</h2><div class="btnrow"><button class="btn" id="stageAuto">추정값으로</button></div></div>
-    <div class="cy-est">
-      <div class="cy-box" id="cyBox"></div>
-      <div><div class="cy-legend"><span><i style="background:var(--cup)"></i>상급지 (최상급·상급) 전세가율</span><span><i style="background:var(--clow)"></i>하급지 (하급·외곽) 전세가율</span><span class="hint">분기별 단지 중위값 · 국토부 실거래</span></div>
-        <svg id="cyChart" viewBox="0 0 900 200" role="img" aria-label="권역별 전세가율 추이"></svg></div>
-    </div>
-    <div class="stages" id="stages"></div>
-    <p class="hint">카드를 누르면 단계를 직접 정할 수 있어요. 추정은 상급지·하급지 전세가율과 최근 4분기 방향, 금리 신호로 계산합니다.</p>
-  </section>
-
-  <!-- 시나리오 비교 -->
-  <section class="panel">
-    <div class="head"><div><h2>시나리오별 예상가 · <span id="scName"></span></h2><p class="hint">카드를 누르면 그 시나리오로 전체 계산이 바뀝니다. 굵은 선이 지금 선택한 시나리오예요.</p></div></div>
-    <div class="sc-cards" id="scCards"></div>
-    <svg id="scChart" viewBox="0 0 900 240" role="img" aria-label="시나리오별 예상 매매가 경로"></svg>
-  </section>
-
   <!-- 단지 시세 -->
   <section class="panel" id="lookup">
     <div class="head"><div><h2>단지 시세 조회</h2><p class="hint status" id="dataStatus"></p></div></div>
@@ -305,8 +274,9 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       <div class="mk-grid">
         <div class="est"><span class="l">매매 추정 시세 <span class="autotag">보정</span></span><span class="v mv" id="mkTA"></span><span class="d" id="mkTAD"></span></div>
         <div class="est"><span class="l">신규 전세 추정 시세 <span class="autotag">보정</span></span><span class="v jv" id="mkJA"></span><span class="d" id="mkJAD"></span></div>
-        <div class="ask"><span class="l">네이버 호가 (직접 입력)</span>
-          <div class="askrow"><label>매매 <input id="askT" type="number" step="0.1" placeholder="억"></label><label>전세 <input id="askJ" type="number" step="0.1" placeholder="억"></label></div>
+        <div class="ask"><span class="l">네이버 최저 호가 (직접 입력)</span>
+          <div class="askrow"><label>매매 <input id="askT" type="number" step="0.1" placeholder="억"></label><label class="lowchk"><input type="checkbox" id="askTL">저층</label>
+            <label>전세 <input id="askJ" type="number" step="0.1" placeholder="억"></label><label class="lowchk"><input type="checkbox" id="askJL">저층</label></div>
           <span class="d" id="mkAskD">호가를 넣으면 보정 시세와의 차이가 나와요</span></div>
         <div><span class="l">최근 실거래</span><span class="v" id="mkLast"></span><span class="d" id="mkLastD"></span></div>
         <div><span class="l">매매 최근 3개월 중위</span><span class="v" id="mkT3"></span><span class="d" id="mkT3D"></span></div>
@@ -363,6 +333,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <div class="kpi"><span class="l">고점 시 전세가</span><span class="v" id="kJeon"></span><span class="d" id="kJeonD"></span></div>
         <div class="kpi hero"><span class="l">예상 고점 매매가</span><span class="v" id="kPeak"></span><span class="d" id="kPeakD"></span></div>
       </div>
+      <div class="scmini" id="scMini" role="group" aria-label="시나리오별 예상 고점"></div>
       <div class="chartbox" id="chartbox">
         <svg id="chart" viewBox="0 0 560 280" role="img" aria-label="전세가 상승과 전세가율별 매매가 범위"></svg>
         <div class="tip" id="tip" hidden></div>
@@ -372,8 +343,62 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
         <span><i style="background:var(--mae)"></i>목표 전세가율 매매가</span>
         <span><i style="background:var(--muted)"></i>전세가율 40·50·60% 선</span>
       </div>
-      <div class="tbl"><table id="sens"></table></div>
+      <div class="tbl" hidden><table id="sens"></table></div>
     </div>
+  </section>
+
+  <!-- 시장 신호 (접힘) -->
+  <details class="panel more" id="moreSig">
+    <summary><strong>시장 신호 설정</strong><span class="hint">금리·전세가율 입력 · 사이클 추정 근거</span></summary>
+    
+    <div class="head"><h2>역전세 · 속도 신호</h2><span class="hint">숫자를 바꾸면 경고와 시나리오 추천이 바로 바뀝니다</span></div>
+    <div class="signals">
+      <div class="sig">
+        <label for="rLoan">전세대출 금리</label>
+        <div class="row"><input id="rLoan" type="number" step="0.05" value="4.7"><span>%</span><span id="pLoan"></span></div>
+        <div class="meter" id="mLoan"><i></i><b></b></div>
+        <p class="hint">5.5% 넘으면 역전세 위험. 지금 선에서 +0.5%p 정도가 한계로 봄</p>
+      </div>
+      <div class="sig">
+        <label for="rConv">전월세 전환율</label>
+        <div class="row"><input id="rConv" type="number" step="0.05" value="5.5"><span>%</span><span id="pConv"></span></div>
+        <div class="meter" id="mConv"><i></i><b></b></div>
+        <p class="hint">6%대 위로 가면 월세 전환 가속, 전세 수요 약화</p>
+      </div>
+      <div class="sig">
+        <label for="rTop">상급지 기준 전세가율</label>
+        <div class="row"><input id="rTop" type="number" step="0.5" value="54.8"><span>%</span><span id="pTop"></span></div>
+        <div class="meter" id="mTop"><i></i><b></b></div>
+        <p class="hint">잠실 리센츠 31억 / 17억 = 54.8%. 40% 아래면 상급지 상승 마무리</p>
+      </div>
+      <div class="sig">
+        <label for="rLow">하급지 평균 전세가율</label>
+        <div class="row"><input id="rLow" type="number" step="0.5" value="62"><span>%</span><span id="pLow"></span></div>
+        <div class="meter" id="mLow"><i></i><b></b></div>
+        <p class="hint">60% 이상이면 전월세 급감 시 매가 급등 여력. 50% 아래면 외곽까지 상승 완료</p>
+      </div>
+    </div>
+  
+    <div class="cy-box" id="cyBox"></div>
+  </details>
+  <div hidden>
+  <!-- 사이클 -->
+  <section class="panel">
+    <div class="head"><h2>사이클 단계 · 현재 위치 추정</h2><div class="btnrow"><button class="btn" id="stageAuto">추정값으로</button></div></div>
+    <div class="cy-est">
+      
+      <div><div class="cy-legend"><span><i style="background:var(--cup)"></i>상급지 (최상급·상급) 전세가율</span><span><i style="background:var(--clow)"></i>하급지 (하급·외곽) 전세가율</span><span class="hint">분기별 단지 중위값 · 국토부 실거래</span></div>
+        <svg id="cyChart" viewBox="0 0 900 200" role="img" aria-label="권역별 전세가율 추이"></svg></div>
+    </div>
+    <div class="stages" id="stages"></div>
+    <p class="hint">카드를 누르면 단계를 직접 정할 수 있어요. 추정은 상급지·하급지 전세가율과 최근 4분기 방향, 금리 신호로 계산합니다.</p>
+  </section>
+
+  <!-- 시나리오 비교 -->
+  <section class="panel">
+    <div class="head"><div><h2>시나리오별 예상가 · <span id="scName"></span></h2><p class="hint">카드를 누르면 그 시나리오로 전체 계산이 바뀝니다. 굵은 선이 지금 선택한 시나리오예요.</p></div></div>
+    <div class="sc-cards" id="scCards"></div>
+    <svg id="scChart" viewBox="0 0 900 240" role="img" aria-label="시나리오별 예상 매매가 경로"></svg>
   </section>
 
   <!-- 비교 단지 -->
@@ -413,6 +438,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
       </ul>
     </div>
   </section>
+  </div>
   <p class="foot">투자 판단 보조용 모형입니다. 숫자는 입력값과 가정에서 계산될 뿐 실제 시세 예측을 보장하지 않습니다. 입력값은 이 브라우저에만 저장됩니다.</p>
 </div>
 
@@ -557,6 +583,8 @@ const J=t=>t.jAdj?t.jAdj[0]:(t.j3??t.j12);   // 보정 신규 전세
 const priceOf=(ty,basis)=>basis==="last"?(ty.last?ty.last[1]:null):basis==="t3"?(ty.t3??ty.t12):(P(ty)??(ty.last?ty.last[1]:null));
 const jeonOf=(ty,jb)=>jb==="j3"?(ty.j3??ty.j12):J(ty);
 const askKey=()=>S.t.apt+"|"+S.t.area;
+// 최저 호가가 저층 매물이면 일반층보다 10% 싸게 나온 것으로 보고 일반층 가격으로 환산 (÷0.9)
+const askEff=(A,k)=>A&&isFinite(A[k])?A[k]/(A[k+"L"]?0.9:1):undefined;
 const ymd=s=>s?`${s.slice(2,4)}.${s.slice(4,6)}${s.length>6?"."+s.slice(6):""}`:"";
 /* 검색 드롭다운 (대상 단지 · 비교 단지 공용) */
 const dd=document.createElement("div");dd.className="dd";dd.hidden=true;dd.setAttribute("role","listbox");document.body.appendChild(dd);
@@ -595,17 +623,19 @@ tn.addEventListener("blur",()=>setTimeout(closeDD,150));
 tn.addEventListener("keydown",ddKeys);
 document.querySelectorAll("#basis button").forEach(b=>b.onclick=()=>{S.t.basis=b.dataset.b;S.t.manualPrice=false;render();if(b.dataset.b==="ask")$("tAsk").focus()});
 $("tAsk").addEventListener("input",e=>{S.t.ask=parseFloat(e.target.value);render("tAsk")});
+["askTL","askJL"].forEach(id=>$(id).addEventListener("change",e=>{S.asks=S.asks||{};const k=askKey();const o=S.asks[k]=S.asks[k]||{};o[id==="askTL"?"tL":"jL"]=e.target.checked;
+  if(id==="askTL"&&S.t.basis==="ask"&&isFinite(o.t))S.t.ask=askEff(o,"t");render()}));
 document.querySelectorAll("#jbasis button").forEach(b=>b.onclick=()=>{S.t.jbasis=b.dataset.j;S.t.manualJeon=false;render()});
 ["askT","askJ"].forEach(id=>$(id).addEventListener("input",e=>{S.asks=S.asks||{};const k=askKey();const o=S.asks[k]=S.asks[k]||{};const v=parseFloat(e.target.value);
-  o[id==="askT"?"t":"j"]=isFinite(v)?v:undefined;if(id==="askT"&&isFinite(v)){S.t.basis="ask";S.t.ask=v;S.t.manualPrice=false}if(id==="askJ"&&isFinite(v)){S.t.jbasis="ask";S.t.manualJeon=false}render(id)}));
+  o[id==="askT"?"t":"j"]=isFinite(v)?v:undefined;if(id==="askT"&&isFinite(v)){S.t.basis="ask";S.t.ask=askEff(o,"t");S.t.manualPrice=false}if(id==="askJ"&&isFinite(v)){S.t.jbasis="ask";S.t.manualJeon=false}render(id)}));
 
 function applyMarket(){
   const t=S.t;if(!DB||!t.apt)return null;
   const a=getApt(t.apt);if(!a)return null;
   const ty=pickType(a,t.area);if(t.area==null)t.area=ty.a;
   S.asks=S.asks||{};const A=S.asks[askKey()]||{};
-  if(!t.manualPrice){const p=t.basis==="ask"?(t.ask??A.t):priceOf(ty,t.basis||"adj");if(isFinite(p)&&p>0)t.price=p}
-  if(!t.manualJeon){const j=t.jbasis==="ask"?A.j:jeonOf(ty,t.jbasis||"adj");if(isFinite(j)&&j>0)t.jeon=j}
+  if(!t.manualPrice){const p=t.basis==="ask"?(t.ask??askEff(A,"t")):priceOf(ty,t.basis||"adj");if(isFinite(p)&&p>0)t.price=p}
+  if(!t.manualJeon){const j=t.jbasis==="ask"?askEff(A,"j"):jeonOf(ty,t.jbasis||"adj");if(isFinite(j)&&j>0)t.jeon=j}
   return {a,ty};
 }
 const vsNow=(pk,now)=>pk&&now?`현재 대비 ${now>=pk?"+":""}${((now/pk-1)*100).toFixed(1)}%`:"";
@@ -652,7 +682,10 @@ function renderEst(a,ty){
   const A=(S.asks||{})[askKey()]||{};
   if(document.activeElement!==$("askT"))$("askT").value=A.t??"";
   if(document.activeElement!==$("askJ"))$("askJ").value=A.j??"";
-  const g=[];if(A.t&&T)g.push(`매매 호가가 추정 시세보다 ${pctS((A.t/T[0]-1)*100)}`);if(A.j&&Jj)g.push(`전세 호가가 ${pctS((A.j/Jj[0]-1)*100)}`);
+  $("askTL").checked=!!A.tL;$("askJL").checked=!!A.jL;
+  const et=askEff(A,"t"),ej=askEff(A,"j");const g=[];
+  if(et&&T)g.push(`매매 ${A.tL?"일반층 환산 "+f1(et)+"억 · ":""}추정 시세 대비 ${pctS((et/T[0]-1)*100)}`);
+  if(ej&&Jj)g.push(`전세 ${A.jL?"일반층 환산 "+f1(ej)+"억 · ":""}${pctS((ej/Jj[0]-1)*100)}`);
   $("mkAskD").textContent=g.length?g.join(" · "):"호가를 넣으면 보정 시세와의 차이가 나와요 (이 브라우저에 저장)";
 }
 /* 주변 단지 · 평형 격차 */
@@ -895,6 +928,8 @@ function renderScen(t){
     <span class="sc-v">${f1(r.peak)}<small>억</small></span><span class="sc-d ${r.peak>=t.price?"up":"dn"}">${r.peak>=t.price?"+":""}${f1((r.peak/t.price-1)*100)}% · ${r.p.years}년 뒤</span>
     <span class="sc-a">전세 연 ${r.p.grow}% · 고점 전세가율 ${r.p.floor}%</span></button>`).join("");
   box.querySelectorAll(".sc-card").forEach(b=>b.onclick=()=>{S.scen=b.dataset.s;render()});
+  const mini=$("scMini");if(mini){mini.innerHTML=rows.map(r=>`<button data-s="${r.sk}" aria-pressed="${r.sk===S.scen}"><span class="n"><i style="background:var(--${SC_COL[r.sk]})"></i>${SCEN[r.sk].n}</span><span class="v">${f1(r.peak)}억</span><span class="d ${r.peak>=t.price?"pu":"pd"}">${r.peak>=t.price?"+":""}${f1((r.peak/t.price-1)*100)}% · ${r.p.years}년</span></button>`).join("");
+    mini.querySelectorAll("button").forEach(b=>b.onclick=()=>{S.scen=b.dataset.s;render()})}
   const W=900,H=240,L=44,R=110,T=16,B=26;
   const all=rows.flatMap(r=>r.path.map(x=>x[1])).concat(t.price);const lo=Math.min(...all)*0.92,hi=Math.max(...all)*1.05;
   const X=y=>L+(W-L-R)*y/3.6,Y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo));
@@ -971,7 +1006,7 @@ function render(focusId){
   $("mA").textContent=eok(A);
   $("mB").textContent=eok(B);
   $("mBd").textContent=imp.length?`범위 ${f1(Math.min(...imp))} ~ ${f1(Math.max(...imp))}억`:"비교 단지를 추가하세요";
-  const C=isFinite(B)?(A+B)/2:A;
+  const C=A;
   $("mC").textContent=eok(C);
   $("mCd").textContent=`현재 ${f1(t.price)}억 대비 ${C>=t.price?"+":""}${f1((C/t.price-1)*100)}%`;
 
@@ -982,6 +1017,11 @@ function render(focusId){
   $("hRatioD").textContent="고점 목표 "+p.floor+"% · "+$("kRatioD").textContent;
   $("hTop").innerHTML=f1(S.sig.top)+"<small>%</small>";
   $("hTopD").textContent=S.sig.top<=40?"상급지 상승 마무리 구간":"40%까지 "+f1(S.sig.top-40)+"%p 남음";
+  const sgg=S.sig;$("heroChips").innerHTML=
+    `<span class="hchip main">${esc(t.name||"대상 단지")} 예상 고점 <b>${f1(C)}억</b> ${C>=t.price?"+":""}${f1((C/t.price-1)*100)}%</span>`+
+    `<span class="hchip">사이클 <b>${S.stage+1}단계</b> ${STAGES[S.stage].t}</span>`+
+    `<span class="hchip">상급지 전세가율 <b>${f1(sgg.top)}%</b></span><span class="hchip">하급지 <b>${f1(sgg.low)}%</b></span>`+
+    `<span class="hchip">전세대출 <b>${sgg.loan}%</b></span>`;
   $("hStage").innerHTML=(S.stage+1)+"<small>/5단계</small>";
   $("hStageD").textContent=STAGES[S.stage].t+(S.stageManual?" (직접 선택)":" (추정)");
   // 지역
