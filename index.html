@@ -687,7 +687,8 @@ function renderMarket(m){
   document.querySelectorAll("#basis button").forEach(b=>b.setAttribute("aria-pressed",!t.manualPrice&&b.dataset.b===(t.basis||"adj")));
   document.querySelectorAll("#jbasis button").forEach(b=>b.setAttribute("aria-pressed",!t.manualJeon&&b.dataset.j===(t.jbasis||"adj")));
   $("tAsk").hidden=t.basis!=="ask";if(document.activeElement!==$("tAsk"))$("tAsk").value=t.ask??"";
-  $("lnNaver").href="https://m.land.naver.com/search/result/"+encodeURIComponent(a.n.replace(/\(.*?\)/g," ").trim()+" "+a.d);
+  // 국토부 단지명은 '후곡마을(대우)'처럼 괄호에 건설사가 들어가 네이버 부동산 단지명과 다름 → 괄호를 풀어 동 이름과 함께 네이버 통합검색 (부동산 단지 카드·매물 호가로 연결)
+  $("lnNaver").href="https://search.naver.com/search.naver?query="+encodeURIComponent(a.d+" "+a.n.replace(/[()]/g," ").replace(/\s+/g," ").trim()+" 아파트 매물");
   $("lnHogang").href="https://search.naver.com/search.naver?query="+encodeURIComponent("호갱노노 "+a.d+" "+a.n);
   drawHistory(ty);renderNeighbors(a,ty);renderPyeong(a,ty);
 }
