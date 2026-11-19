@@ -13,7 +13,7 @@ const DATA = process.env.DATA_DIR || path.join(__dirname, 'data');
 const CACHE = process.env.CACHE_DIR || path.join(__dirname, 'cache');
 fs.mkdirSync(path.join(DATA, 'r'), { recursive: true });
 fs.mkdirSync(CACHE, { recursive: true });
-const CONC = 4;
+const CONC = +process.env.CONC || 4;
 
 const EP = {
   trade: 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade',

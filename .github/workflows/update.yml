@@ -39,7 +39,8 @@ jobs:
           MOLIT_KEY: ${{ secrets.MOLIT_KEY }}
           DATA_DIR: _site/data
           CACHE_DIR: cache
-        run: node tools/molit_sync.js 202001
+          CONC: 1
+        run: node tools/molit_sync.js 201601
       - name: 사이트 파일 준비
         run: cp index.html .nojekyll _site/
       - uses: actions/upload-pages-artifact@v3
