@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: '0 21 * * *'   # 매일 06:00 KST
   workflow_dispatch:        # Actions 탭에서 "Run workflow" 로 수동 실행
+  push:                     # 페이지·수집 도구를 고치면 바로 다시 배포
+    branches: [main]
+    paths: [index.html, tools/**, .github/workflows/update.yml]
 
 permissions:
   contents: read
