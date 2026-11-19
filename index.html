@@ -146,6 +146,8 @@ td.n,th.n{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular
 .lnpair .btn:first-child{border-radius:999px 0 0 999px}
 .lnpair .btn.cp{border-radius:0 999px 999px 0;border-left:0;padding-inline:10px;font-size:12px}
 .inrow{display:flex;gap:6px}
+.howto{font-size:13px;color:var(--ink2);background:var(--bg);border-radius:12px;padding:10px 14px}
+.howto p{margin:0 0 4px}.howto ol{margin:4px 0;padding-left:18px;display:grid;gap:3px}
 .inrow input{flex:1;min-width:0}
 .inrow .btn{white-space:nowrap;font-size:12px;padding:6px 10px}
 #cpMsg{margin:0;min-height:0}
@@ -322,7 +324,12 @@ th{font-size:12px}
         <div class="btnrow"><span class="lnpair"><a class="btn" id="lnNaver" target="_blank" rel="noopener">네이버 부동산 ↗</a><button class="btn cp" type="button" data-copy="lnNaver" aria-label="네이버 부동산 링크 복사">복사</button></span><span class="lnpair"><a class="btn" id="lnHogang" target="_blank" rel="noopener">호갱노노 ↗</a><button class="btn cp" type="button" data-copy="lnHogang" aria-label="호갱노노 링크 복사">복사</button></span><button class="btn" id="lnEdit" type="button">링크 연결</button></div></div>
       <p class="hint" id="cpMsg" aria-live="polite"></p>
       <div class="linkform" id="linkForm" hidden>
-        <p class="hint">네이버 부동산·호갱노노에서 이 단지와 평형을 열어 둔 상태의 주소를 복사해 붙여 넣으세요. 저장하면 다음부터 버튼이 그 화면으로 바로 열려요 (평형별로 따로 저장, 이 브라우저에만 저장).</p>
+        <div class="howto">
+          <p><b>단지 화면 주소를 가져오는 방법</b> (검색 결과 주소가 아니라 <b>단지 화면</b>의 주소가 필요해요)</p>
+          <ol><li>위의 <b>네이버 부동산</b> 버튼 → 검색 결과의 <b>부동산 단지 카드</b>를 눌러 단지 화면으로 이동 (원하면 평형 선택)</li>
+          <li><b>PC</b>: 주소창 클릭 → Ctrl+C &nbsp;/&nbsp; <b>휴대폰</b>: 화면의 <b>공유 → 링크 복사</b> (naver.me 짧은 주소도 돼요)</li>
+          <li>여기로 돌아와 아래 칸에 붙여넣기 → <b>저장</b>. 호갱노노도 같은 방법이에요</li></ol>
+          <p class="hint">공유하기로 복사한 글 전체를 붙여 넣어도 주소만 골라 저장해요. 평형별로 따로 저장되고 이 브라우저에만 남아요.</p></div>
         <label class="field"><span>네이버 부동산 주소</span><span class="inrow"><input id="lnNaverUrl" type="url" placeholder="https://fin.land.naver.com/complexes/... 또는 https://new.land.naver.com/complexes/..."><button class="btn cp" type="button" data-paste="lnNaverUrl">붙여넣기</button><button class="btn cp" type="button" data-copy="lnNaverUrl">복사</button></span></label>
         <label class="field"><span>호갱노노 주소</span><span class="inrow"><input id="lnHogangUrl" type="url" placeholder="https://hogangnono.com/apt/..."><button class="btn cp" type="button" data-paste="lnHogangUrl">붙여넣기</button><button class="btn cp" type="button" data-copy="lnHogangUrl">복사</button></span></label>
         <div class="btnrow"><button class="btn primary" id="lnSave" type="button">저장</button><button class="btn" id="lnClear" type="button">연결 해제</button><span class="hint" id="lnMsg"></span></div>
@@ -744,13 +751,17 @@ function renderMarket(m){
   $("tAsk").hidden=t.basis!=="ask";if(document.activeElement!==$("tAsk"))$("tAsk").value=t.ask??"";
   drawHistory(ty);renderNeighbors(a,ty);renderPyeong(a,ty);
 }
-const LINK_OK={naver:/^https:\/\/(fin|new|m)\.land\.naver\.com\//,hogang:/^https:\/\/(www\.)?hogangnono\.com\//};
+const LINK_OK={naver:/^https:\/\/((fin|new|m)\.land\.naver\.com|naver\.me|m\.naver\.me)\//i,hogang:/^https:\/\/((www\.)?hogangnono\.com|hgnn\.(co|kr|link)|[a-z0-9.-]*hogangnono[a-z0-9.-]*)\//i};
+// 공유하기로 복사한 글에서 첫 번째 주소만 꺼냄
+const pickUrl=t=>{const m=String(t||"").match(/https?:\/\/[^\s<>"')]+/i);return m?m[0].replace(/^http:/i,"https:"):String(t||"").trim()};
+const isSearch=u=>/search\.naver\.com|[?&](query|q)=/i.test(u)&&!/land\.naver\.com\/complexes/.test(u);
 function renderLinks(a){
   S.links=S.links||{};const L=S.links[askKey()]||{};
   const nq=a.d+" "+a.n.replace(/[()]/g," ").replace(/\s+/g," ").trim();
   const nv=$("lnNaver"),hg=$("lnHogang");
   nv.href=L.naver||"https://search.naver.com/search.naver?query="+encodeURIComponent(nq+" 아파트 매물");
   hg.href=L.hogang||"https://search.naver.com/search.naver?query="+encodeURIComponent("호갱노노 "+nq);
+  document.querySelectorAll('[data-copy="lnNaver"]').forEach(b=>b.style.opacity=L.naver?1:.45);document.querySelectorAll('[data-copy="lnHogang"]').forEach(b=>b.style.opacity=L.hogang?1:.45);
   nv.textContent=L.naver?"네이버 부동산 매물 ↗":"네이버 부동산 (검색) ↗";nv.classList.toggle("linked",!!L.naver);
   hg.textContent=L.hogang?"호갱노노 단지 ↗":"호갱노노 (검색) ↗";hg.classList.toggle("linked",!!L.hogang);
   if(document.activeElement!==$("lnNaverUrl"))$("lnNaverUrl").value=L.naver||"";
@@ -763,18 +774,21 @@ function fallbackSelect(text){const el=$("lnNaverUrl");$("linkForm").hidden=fals
 document.addEventListener("click",e=>{
   const c=e.target.closest("[data-copy]"),p=e.target.closest("[data-paste]");
   if(c){const src=$(c.dataset.copy);const text=src.tagName==="A"?src.href:src.value;if(!text){flash("복사할 주소가 없어요");return}
+    if(src.tagName==="A"&&!src.classList.contains("linked")){$("linkForm").hidden=false;flash("아직 단지 화면이 연결되지 않아 검색 주소만 있어요. 아래 '단지 화면 주소를 가져오는 방법'대로 연결해 주세요");return}
     const done=()=>flash("복사했어요: "+text.slice(0,60)+(text.length>60?"…":""));
     if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done).catch(()=>{fallbackSelect(text)?done():flash("이 화면에서는 자동 복사가 막혀 있어요. 주소: "+text)});
     else fallbackSelect(text)?done():flash("주소: "+text);}
   if(p){const inp=$(p.dataset.paste);
-    if(navigator.clipboard&&navigator.clipboard.readText)navigator.clipboard.readText().then(t=>{inp.value=(t||"").trim();inp.focus();flash(t?"붙여넣었어요. 저장을 눌러 주세요":"클립보드가 비어 있어요")}).catch(()=>{inp.focus();flash("이 화면에서는 자동 붙여넣기가 막혀 있어요. 칸을 길게 눌러 붙여넣기 해 주세요")});
+    if(navigator.clipboard&&navigator.clipboard.readText)navigator.clipboard.readText().then(t=>{inp.value=pickUrl(t);inp.focus();flash(t?"붙여넣었어요. 저장을 눌러 주세요":"클립보드가 비어 있어요")}).catch(()=>{inp.focus();flash("이 화면에서는 자동 붙여넣기가 막혀 있어요. 칸을 길게 눌러 붙여넣기 해 주세요")});
     else{inp.focus();flash("칸을 길게 눌러 붙여넣기 해 주세요")}}
 });
 $("lnEdit").onclick=()=>{$("linkForm").hidden=!$("linkForm").hidden;$("lnMsg").textContent=""};
 $("lnSave").onclick=()=>{
-  const n=$("lnNaverUrl").value.trim(),h=$("lnHogangUrl").value.trim();
-  if(n&&!LINK_OK.naver.test(n)){$("lnMsg").textContent="네이버 부동산 주소(land.naver.com)가 아니에요";return}
+  const n=$("lnNaverUrl").value.trim()?pickUrl($("lnNaverUrl").value):"",h=$("lnHogangUrl").value.trim()?pickUrl($("lnHogangUrl").value):"";
+  if(n&&isSearch(n)||h&&isSearch(h)){$("lnMsg").textContent="네이버 검색 결과 주소예요. 검색 결과에서 단지 화면을 연 뒤 그 주소를 복사해 주세요";return}
+  if(n&&!LINK_OK.naver.test(n)){$("lnMsg").textContent="네이버 부동산 단지 주소(land.naver.com 또는 naver.me)가 아니에요";return}
   if(h&&!LINK_OK.hogang.test(h)){$("lnMsg").textContent="호갱노노 주소(hogangnono.com)가 아니에요";return}
+  $("lnNaverUrl").value=n;$("lnHogangUrl").value=h;
   S.links=S.links||{};S.links[askKey()]={naver:n||undefined,hogang:h||undefined};$("lnMsg").textContent="저장했어요";render();
 };
 $("lnClear").onclick=()=>{S.links=S.links||{};delete S.links[askKey()];$("lnMsg").textContent="연결을 해제했어요";render()};
