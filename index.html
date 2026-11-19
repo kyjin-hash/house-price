@@ -382,6 +382,7 @@ th{font-size:12px}
       <div class="form">
                 <label class="field"><span>입지 등급</span>
           <select id="tTier"></select></label>
+        <p class="hint full" id="tierHint"></p>
         <label class="field"><span>고점까지 남은 기간 (년)</span><input id="tYears" type="number" step="0.5" min="0.5"></label>
         <label class="field"><span>현재 매매가 (억)</span><input id="tPrice" type="number" step="0.1"></label>
         <label class="field"><span>현재 전세가 (억)</span><input id="tJeon" type="number" step="0.1"></label>
@@ -513,11 +514,11 @@ th{font-size:12px}
 (function(){
 const $=id=>document.getElementById(id);
 const TIERS={
-  top:{n:"최상급지",ex:"강남·서초·송파·용산",floor:40},
-  high:{n:"상급지",ex:"마용성·광진·동작·강동",floor:42},
-  mid:{n:"중급지",ex:"광명·분당·과천·목동 인근",floor:45},
-  low:{n:"하급지",ex:"노도강·금관구·부천·개봉",floor:50},
-  out:{n:"외곽",ex:"파주·양주 옥정·3기 신도시",floor:50}
+  top:{n:"최상급지",ex:"마래푸와 리센츠 중간값 이상",floor:40},
+  high:{n:"상급지",ex:"마포래미안푸르지오 이상",floor:42},
+  mid:{n:"중급지",ex:"마래푸의 50~100%",floor:45},
+  low:{n:"하급지",ex:"마래푸의 25~50%",floor:50},
+  out:{n:"외곽",ex:"마래푸의 25% 미만",floor:50}
 };
 const SCEN={
   hold:{n:"고금리 유지",note:"위드 인플레이션. 방향은 상승이지만 확산 속도가 느림. 상급지는 조정 후 쌍봉, 하급지는 천천히 따라감.",years:3,gHi:1,gLo:4.5,floorAdj:0},
@@ -679,7 +680,7 @@ function ddKeys(e){
 }
 window.addEventListener("scroll",e=>{if(!dd.contains(e.target))closeDD()},true);window.addEventListener("resize",closeDD);
 function pickTarget(a){
-  S.t={...S.t,name:a.n,apt:aptKey(a),area:null,tier:TIER_BY[a.l]||S.t.tier,basis:"adj",jbasis:"adj",manualPrice:false,manualJeon:false};
+  S.t={...S.t,name:a.n,apt:aptKey(a),area:null,tier:TIER_BY[a.l]||S.t.tier,tierAuto:true,basis:"adj",jbasis:"adj",manualPrice:false,manualJeon:false};
   loadRegion(a.l).then(()=>render()).catch(()=>render());
   render();
 }
@@ -696,10 +697,18 @@ document.querySelectorAll("#jbasis button").forEach(b=>b.onclick=()=>{S.t.jbasis
 ["askT","askJ"].forEach(id=>$(id).addEventListener("input",e=>{S.asks=S.asks||{};const k=askKey();const o=S.asks[k]=S.asks[k]||{};const v=parseFloat(e.target.value);
   o[id==="askT"?"t":"j"]=isFinite(v)?v:undefined;S.t.manualPrice=false;S.t.manualJeon=false;if(S.t.basis==="ask")S.t.basis="adj";if(S.t.jbasis==="ask")S.t.jbasis="adj";render(id)}));
 
+// 입지 등급 = 전용 3.3㎡당 추정 시세를 마포래미안푸르지오 84㎡(M)·리센츠 84㎡(R)와 비교
+function tierByPrice(ty){
+  const B=DB&&DB.bench;const p=P(ty);if(!B||!B.mrfp||!p)return null;
+  const pp=p/(ty.a/3.3058),M=B.mrfp,R=B.recents||M*1.35;
+  const tier=pp>=(M+R)/2?"top":pp>=M?"high":pp>=M*0.5?"mid":pp>=M*0.25?"low":"out";
+  return {tier,pp,ratio:pp/M,M,R};
+}
 function applyMarket(){
   const t=S.t;if(!DB||!t.apt){t.hist=null;return null}
   const a=getApt(t.apt);if(!a)return null;
   const ty=pickType(a,t.area);if(t.area==null)t.area=ty.a;
+  const tb=tierByPrice(ty);t.tierInfo=tb;if(tb&&t.tierAuto!==false)t.tier=tb.tier;
   t.hist=peakRatio21(ty); // 이 단지가 2021 고점 때 실제로 내려갔던 전세가율
   S.asks=S.asks||{};const A=S.asks[askKey()]||{};
   if(!t.manualPrice){const b=t.basis||"adj";const p=b==="ask"?(t.ask??askEff(A,"t")):b==="adj"?(askEff(A,"t")??P(ty)):priceOf(ty,b);if(isFinite(p)&&p>0)t.price=p}
@@ -904,7 +913,7 @@ Object.entries(map).forEach(([id,k])=>{
   $(id).addEventListener("input",e=>{
     const v=e.target.value;
     if(k==="name"){S.t.name=v;S.t.apt=null}
-    else if(k==="tier") S.t[k]=v;
+    else if(k==="tier"){S.t[k]=v;S.t.tierAuto=false}
     else if(k==="price"){S.t.price=parseFloat(v);S.t.manualPrice=true}
     else if(k==="jeon"){S.t.jeon=parseFloat(v);S.t.manualJeon=true}
     else if(["years","grow","floor"].includes(k)) S.t[k]=v===""?null:parseFloat(v);
@@ -1107,6 +1116,7 @@ function render(focusId){
   const t=S.t,p=params();
   if(focusId!=="tName")$("tName").value=t.name;
   $("tTier").value=t.tier;
+  {const tb=t.apt?t.tierInfo:null;$("tierHint").textContent=tb?`${t.tierAuto===false?"직접 고른 등급 · ":"자동: "}전용 3.3㎡당 ${tb.pp.toFixed(2)}억 = 마포래미안푸르지오(${tb.M.toFixed(2)}억)의 ${Math.round(tb.ratio*100)}% → ${TIERS[tb.tier].n}${t.tierAuto===false&&tb.tier!==t.tier?" (자동이라면 "+TIERS[tb.tier].n+")":""}`:"입지 등급 기준: 전용 3.3㎡당 시세가 마래푸 이상 상급지, 50~100% 중급지, 25~50% 하급지, 25% 미만 외곽"}
   [["tPrice",t.price],["tJeon",t.jeon],["tYears",p.years],["tGrow",p.grow],["tFloor",p.floor]].forEach(([id,v])=>{if(focusId!==id)$(id).value=v});
   const manual=[t.years,t.grow,t.floor].some(v=>v!=null);
   $("autoHint").textContent=(manual?"일부 값을 직접 입력했어요. ":"시나리오 기본값 적용 중. ")+

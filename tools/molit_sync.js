@@ -212,7 +212,7 @@ function summarize(regionRows) {
   for (const ym of order) for (const lawd of codes) for (const kind of ['trade', 'rent']) jobs.push(() => fetchMonth(kind, lawd, ym));
   let done = 0;
   await pool(jobs.map(j => async () => { await j(); if (++done % 1000 === 0) console.log(`진행 ${done}/${jobs.length} · 호출 ${calls}`); }), CONC);
-  const coverage = {}, regionStats = {}; let oldRentTotal = 0;
+  const coverage = {}, regionStats = {}, bench = {}; let oldRentTotal = 0;
   for (const lawd of codes) {
     const regionRows = []; let missing = 0, oldRent = 0; const have = [];
     for (const ym of YMS) for (const kind of ['trade', 'rent']) {
@@ -223,6 +223,8 @@ function summarize(regionRows) {
     }
     coverage[lawd] = have.length; if (oldRent) oldRentTotal += oldRent;
     const apts = summarize(regionRows);
+    // 입지 등급 기준 단지: 마포래미안푸르지오(1~4단지)·리센츠 84㎡ 전용 3.3㎡당 시세
+    for (const a of apts) if ((lawd === '11440' && /^마포래미안푸르지오[0-9]단지$/.test(a.n)) || (lawd === '11710' && a.n === '리센츠')) { const t = a.types.find(u => u.a === 84); const p = t && (t.tLast ? t.tLast[0] : t.tAdj ? t.tAdj[0] : (t.t3 ?? t.t12)); if (p) (bench[lawd === '11440' ? 'm' : 'r'] = bench[lawd === '11440' ? 'm' : 'r'] || []).push(p / (84 / 3.3058)); }
     // 지역 전세가율: 단지·평형별 (전세 ÷ 매매) 의 중위값. 지금(최근 3개월, 없으면 1년)과 분기별
     const nowR = [], qR = {};
     for (const a of apts) for (const t of a.types) {
@@ -239,7 +241,9 @@ function summarize(regionRows) {
     }
     console.log(`${REGIONS[lawd]}(${lawd}) 단지 ${apts.length}개${missing ? ` · 빠진 달 ${missing}` : ''} · 누적 호출 ${calls}`);
   }
+  const bAvg = a => a && a.length ? Math.round(avg(a) * 1000) / 1000 : null;
   fs.writeFileSync(path.join(DATA, 'index.json'), JSON.stringify({
+    bench: { mrfp: bAvg(bench.m), recents: bAvg(bench.r) },
     updated: new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ') + ' KST', from: YMS[0], to: YMS[YMS.length - 1], months: YMS.length, coverage, regionStats, oldRentMonths: oldRentTotal, partial: quota.trade || quota.rent,
     regions: REGIONS, source: '국토교통부 실거래가 공개시스템 (공공데이터포털 API)', apts: index,
   }));
