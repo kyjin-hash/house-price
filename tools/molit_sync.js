@@ -233,7 +233,12 @@ function summarize(regionRows) {
       for (const [k, tp, tj] of t.q) if (tp && tj && tj < tp * 1.2) (qR[k] = qR[k] || []).push(tj / tp * 100);
     }
     const rnd = v => v == null ? null : Math.round(v * 10) / 10;
-    regionStats[lawd] = { now: rnd(median(nowR)), n: nowR.length, q: Object.fromEntries(Object.keys(qR).sort().filter(k => qR[k].length >= 5).map(k => [k, rnd(median(qR[k]))])) };
+    // 공급 지표: 최근 12개월 전월세(갱신 제외) 계약 중 입주 2년 이내 신축 단지 비중 = 입주물량 부담
+    const last12 = new Set(YMS.slice(-12)), curY = +YMS[YMS.length - 1].slice(0, 4);
+    let rAll = 0, rNew = 0; const newApts = new Set();
+    for (const { kind, rows } of regionRows) if (kind === 'rent') for (const r of rows) if (last12.has(r.ym) && r.ct !== '갱신') { rAll++; if (r.y >= curY - 1) { rNew++; newApts.add(r.n); } }
+    const supply = rAll ? { share: Math.round(rNew / rAll * 1000) / 10, newApts: newApts.size, n: rAll } : null;
+    regionStats[lawd] = { now: rnd(median(nowR)), n: nowR.length, supply, q: Object.fromEntries(Object.keys(qR).sort().filter(k => qR[k].length >= 5).map(k => [k, rnd(median(qR[k]))])) };
     fs.writeFileSync(path.join(DATA, 'r', lawd + '.json'), JSON.stringify({ l: lawd, g: REGIONS[lawd], have, apts }));
     for (const a of apts) {
       const main = a.types.reduce((b, t) => (t.nt + t.nj) > (b.nt + b.nj) ? t : b, a.types[0]);

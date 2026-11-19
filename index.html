@@ -401,6 +401,7 @@ th{font-size:12px}
           <label>하락 시작 <input id="cDS" type="number" step="0.25" min="2026" max="2040"> 년</label>
           <label>바닥 <input id="cDE" type="number" step="0.25" min="2027" max="2045"> 년</label>
           <label>연 하락률 <input id="cDR" type="number" step="0.5" min="0" max="20"> %</label>
+          <label>고점 이후 전세 연 <input id="cJG" type="number" step="0.5" min="-5" max="10"> %</label>
           <p class="hint" id="cycHint"></p>
         </div>
         <div class="btnrow full"><button class="btn" id="resetAuto">시나리오 기본값으로 되돌리기</button></div>
@@ -815,7 +816,7 @@ document.addEventListener("click",e=>{
     else{inp.focus();flash("칸을 길게 눌러 붙여넣기 해 주세요")}}
 });
 $("pkJ").addEventListener("input",e=>{S.pkJ=S.pkJ||{};const v=parseFloat(e.target.value);if(isFinite(v)&&v>0)S.pkJ[askKey()]=v;else delete S.pkJ[askKey()];render("pkJ")});
-[["cDS","ds"],["cDE","de"],["cDR","dr"]].forEach(([id,k])=>$(id).addEventListener("input",e=>{S.cyc=S.cyc||{};const v=parseFloat(e.target.value);if(isFinite(v))S.cyc[k]=v;else delete S.cyc[k];render(id)}));
+[["cDS","ds"],["cDE","de"],["cDR","dr"],["cJG","jg"]].forEach(([id,k])=>$(id).addEventListener("input",e=>{S.cyc=S.cyc||{};const v=parseFloat(e.target.value);if(isFinite(v))S.cyc[k]=v;else delete S.cyc[k];render(id)}));
 document.querySelectorAll("#rng button").forEach(b=>b.onclick=()=>{S.rng=b.dataset.r;render()});
 $("lnEdit").onclick=()=>{$("linkForm").hidden=!$("linkForm").hidden;$("lnMsg").textContent=""};
 $("lnSave").onclick=()=>{
@@ -1004,8 +1005,9 @@ function chart(t,p){
   g+=`<rect x="${xs}" y="${T}" width="${Math.max(0,xe-xs)}" height="${H-T-B}" fill="var(--jeon)" opacity=".07"/><text x="${(xs+xe)/2}" y="${T+12}" text-anchor="middle" font-size="11" fill="var(--jeon)" font-weight="700">하락기</text>`;
   g+=`<line x1="${X(NOW_Y)}" x2="${X(NOW_Y)}" y1="${T}" y2="${H-B}" stroke="var(--ink2)" stroke-dasharray="2 3"/><text x="${X(NOW_Y)}" y="${T-4}" text-anchor="middle" font-size="11" fill="var(--ink2)">지금</text>`;
   // 과거 선 (빈 분기는 끊김)
-  const pline=(key,col)=>{let d="",pen=false;for(const x of past){if(x[key]==null){pen=false;continue}d+=(pen?"L":"M")+X(x.yr).toFixed(1)+" "+Y(x[key]).toFixed(1);pen=true}
-    return `<path d="${d}" fill="none" stroke="var(--${col})" stroke-width="2"/>`+past.filter(x=>x[key]!=null).map(x=>`<circle cx="${X(x.yr)}" cy="${Y(x[key])}" r="2.2" fill="var(--${col})"/>`).join("")};
+  const pline=(key,col)=>{const v=past.filter(x=>x[key]!=null);if(!v.length)return "";
+    const d=v.map((x,i)=>(i?"L":"M")+X(x.yr).toFixed(1)+" "+Y(x[key]).toFixed(1)).join("");
+    return `<path d="${d}" fill="none" stroke="var(--${col})" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`};
   // 전망 선 (점선)
   const fline=(key,col)=>`<path d="M${X(NOW_Y)} ${Y(key==="m"?t.price:t.jeon)}`+fut.map(q=>"L"+X(q.yr).toFixed(1)+" "+Y(q[key]).toFixed(1)).join("")+`" fill="none" stroke="var(--${col})" stroke-width="2.2" stroke-dasharray="6 4"/>`;
   let marks="";
@@ -1033,14 +1035,22 @@ function chart(t,p){
    단, 하급지 전세가율 40% 이하 또는 외곽(일산·파주·옥정 등) 전세가율 50% 이하가 되면
    거품 완성 신호로 보고 하락 시작을 지금부터 6개월 뒤로 앞당김 */
 const NOW_Y=(()=>{const d=new Date();return d.getFullYear()+d.getMonth()/12})();
+// 지역 공급 부담: 최근 1년 전월세 계약 중 입주 2년 이내 신축 비중
+function supplyInfo(){
+  const l=S.t&&S.t.apt?S.t.apt.split("|")[0]:null;const st=l&&DB&&DB.regionStats&&DB.regionStats[l];const sp=st&&st.supply;
+  if(!sp)return {rate:5,share:null,label:"공급 자료 없음",g:l&&DB&&DB.regions?DB.regions[l]:""};
+  const rate=sp.share>20?1:sp.share>10?3:5;
+  return {rate,share:sp.share,newApts:sp.newApts,label:sp.share>20?"공급 과잉":sp.share>10?"공급 다소 많음":"공급 보통",g:DB.regions[l]};
+}
 function cycleCfg(){
   S.cyc=S.cyc||{};const c=S.cyc,mr=typeof marketRatios==="function"?marketRatios():null;
   const sig=[];
   if(S.sig.low!=null&&S.sig.low<=40)sig.push(`하급지 전세가율 ${f1(S.sig.low)}% ≤ 40% → 매매가 하락 위험`);
   if(mr&&mr.out!=null&&mr.out<=50)sig.push(`외곽 전세가율 ${f1(mr.out)}% ≤ 50% → 구조적 하락장 신호`);
+  const sp=supplyInfo();const jg=c.jg??sp.rate;
   let ds=c.ds??2029.5;const de=Math.max(c.de??2034,ds+0.25),dr=c.dr??4;
   const early=sig.length&&c.ds==null?Math.min(ds,NOW_Y+0.5):null;if(early!=null)ds=early;
-  return {ds,de:Math.max(de,ds+0.25),dr,sig,early:early!=null,mrOut:mr&&mr.out};
+  return {ds,de:Math.max(de,ds+0.25),dr,jg,sp,sig,early:early!=null,mrOut:mr&&mr.out};
 }
 function cyclePath(t,p,sk){
   const C=cycleCfg(),r0=t.jeon/t.price*100,toDS=Math.max(0,C.ds-NOW_Y),rise=Math.min(p.years,toDS);
@@ -1050,7 +1060,7 @@ function cyclePath(t,p,sk){
       if(sk!=="rev")m=Math.max(m,t.price);
       if(sk==="crash"&&y<0.6)m*=1-0.06*Math.sin(Math.PI*y/0.6);}
     else{if(mPeak==null){const jj=t.jeon*Math.pow(1+p.grow/100,rise),f2=r0+(p.floor-r0)*(rise/p.years);mPeak=jj/(f2/100);if(sk!=="rev")mPeak=Math.max(mPeak,t.price);jPeak=jj}
-      j=jPeak;const yd=NOW_Y+y;
+      j=jPeak*Math.pow(1+C.jg/100,y-rise);const yd=NOW_Y+y;   // 고점 이후 전세는 실수요라 공급 부담에 따라 연 1~5% 상승
       if(yd<=C.ds){m=mPeak;ph="고점 유지"}
       else{const span=Math.min(yd,C.de)-C.ds;m=mPeak*Math.pow(1-C.dr/100,span);ph=yd<=C.de?"하락":"바닥"}
       fl=j/m*100;}
@@ -1197,7 +1207,7 @@ function render(focusId){
   const up=(pr.peak/t.price-1)*100;
   $("kPeakD").textContent=`현재 대비 ${up>=0?"+":""}${f1(up)}% · ${f1(cp.peak.yr)}년 전후`;
   $("formula").innerHTML=`지금 전세 <b>${f1(t.jeon)}억</b> × (1+${p.grow}%)<sup>${f1(cp.rise)}년</sup> = 고점 때 전세 <b>${f1(pr.j)}억</b>${cp.rise<p.years?` (상승 ${p.years}년 중 하락 전환 전까지 ${f1(cp.rise)}년만 반영)`:""}<br>
-    ÷ 고점 전세가율 <b>${p.floor}%</b> ${t.floor!=null?"(직접 입력)":p.auto.src==="hist"?"(2021 고점 매매가 ÷ 그 시기 많이 거래된 전세가)":p.auto.src==="below"?"(지금 전세가율이 이미 2021 고점("+t.hist.r+"%)보다 낮아 "+TIERS[t.tier].n+" 기준 "+TIERS[t.tier].floor+"%와 비교해 낮은 값)":"(입지 등급 기본값 · 직접 수정 가능)"} = 예상 고점 <b>${f1(pr.peak)}억</b><br>이후 ${f1(cp.C.ds)}년부터 연 ${cp.C.dr}%씩 하락 → ${f1(cp.C.de)}년 바닥 <b>${f1(cp.bottom.m)}억</b>${cp.C.early?" (하락 신호 감지로 하락 시작을 앞당김)":""}`;
+    ÷ 고점 전세가율 <b>${p.floor}%</b> ${t.floor!=null?"(직접 입력)":p.auto.src==="hist"?"(2021 고점 매매가 ÷ 그 시기 많이 거래된 전세가)":p.auto.src==="below"?"(지금 전세가율이 이미 2021 고점("+t.hist.r+"%)보다 낮아 "+TIERS[t.tier].n+" 기준 "+TIERS[t.tier].floor+"%와 비교해 낮은 값)":"(입지 등급 기본값 · 직접 수정 가능)"} = 예상 고점 <b>${f1(pr.peak)}억</b><br>이후 전세는 연 ${cp.C.jg}%씩 오르고(${cp.C.sp.label}), 매매는 ${f1(cp.C.ds)}년부터 연 ${cp.C.dr}%씩 하락 → ${f1(cp.C.de)}년 바닥 <b>${f1(cp.bottom.m)}억</b>${cp.C.early?" (하락 신호 감지로 하락 시작을 앞당김)":""}`;
   chart(t,p);
   // 민감도
   const rs=[35,40,45,50,55,60],gs=[p.grow-2,p.grow,p.grow+2];
@@ -1223,8 +1233,8 @@ function render(focusId){
   $("hRatioD").textContent="고점 목표 "+p.floor+"% · "+$("kRatioD").textContent;
   $("hTop").innerHTML=f1(S.sig.top)+"<small>%</small>";
   $("hTopD").textContent=S.sig.top<=40?"상급지 상승 마무리 구간":"40%까지 "+f1(S.sig.top-40)+"%p 남음";
-  {const C=cycleCfg();[["cDS",C.ds],["cDE",C.de],["cDR",C.dr]].forEach(([id,v])=>{if(focusId!==id)$(id).value=v});
-   $("cycHint").textContent=(C.sig.length?"⚠ "+C.sig.join(" · ")+(C.early?" → 하락 시작을 앞당겼어요":""):"하락 신호 없음")+` · 신호 기준: 하급지 전세가율 40% 이하, 외곽(일산·파주·옥정 등) 50% 이하${C.mrOut!=null?" (현재 외곽 "+f1(C.mrOut)+"%)":""}`;}
+  {const C=cycleCfg();[["cDS",C.ds],["cDE",C.de],["cDR",C.dr],["cJG",C.jg]].forEach(([id,v])=>{if(focusId!==id)$(id).value=v});
+   $("cycHint").textContent=(C.sp.share!=null?`${C.sp.g} 공급: 최근 1년 전월세 계약 중 입주 2년 이내 신축 ${C.sp.share}% (${C.sp.newApts}개 단지) → ${C.sp.label}, 고점 이후 전세 연 ${C.sp.rate}% (10% 이하 5% · 10~20% 3% · 20% 초과 1%)${S.cyc&&S.cyc.jg!=null?" · 지금은 직접 입력 "+C.jg+"%":""}. `:"")+(C.sig.length?"⚠ "+C.sig.join(" · ")+(C.early?" → 하락 시작을 앞당겼어요":""):"하락 신호 없음")+` · 신호 기준: 하급지 전세가율 40% 이하, 외곽(일산·파주·옥정 등) 50% 이하${C.mrOut!=null?" (현재 외곽 "+f1(C.mrOut)+"%)":""}`;}
   const sgg=S.sig;$("heroChips").innerHTML=
     `<span class="hchip main">${esc(t.name||"대상 단지")} 예상 고점 <b>${f1(C)}억</b> ${C>=t.price?"+":""}${f1((C/t.price-1)*100)}%</span>`+
     `<span class="hchip">사이클 <b>${S.stage+1}단계</b> ${STAGES[S.stage].t}</span>`+
