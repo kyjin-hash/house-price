@@ -346,7 +346,7 @@ th{font-size:12px}
         <div><span class="l">매매 최근 3개월 중위</span><span class="v" id="mkT3"></span><span class="d" id="mkT3D"></span></div>
         <div><span class="l">신규 전세 최근 3개월 중위</span><span class="v" id="mkJ3"></span><span class="d" id="mkJ3D"></span></div>
         <div class="pk"><span class="l">2021~22 상승장 고점 실거래</span><span class="v mv" id="mk21"></span><span class="d" id="mk21D"></span></div>
-        <div class="pk"><span class="l">2021 고점 거래 시 전세가율</span><span class="v jv" id="mk21R"></span><span class="d" id="mk21RD"></span></div>
+        <div class="pk"><span class="l">2021 고점 전세가율 (고점 매매 ÷ 대표 전세)</span><span class="v jv" id="mk21R"></span><span class="d" id="mk21RD"></span></div>
         <div class="pk"><span class="l">역대 최고 실거래 (2020~)</span><span class="v" id="mkTop"></span><span class="d" id="mkTopD"></span></div>
         <div hidden><span id="mkTPk"></span><span id="mkTPkD"></span><span id="mkJPk"></span><span id="mkJPkD"></span></div>
       </div>
@@ -706,8 +706,8 @@ function applyMarket(){
   return {a,ty};
 }
 function peakRatio21(ty){
-  // 1순위: 2021~22 고점 실거래 매매가 ÷ 같은 시기 전세 실거래 중위값
-  if(ty.pk21){const p=ty.pk21;return {r:p[0],src:"trade",t:p[1],date:p[2],j:p[3],n:p[4],w:p[5]}}
+  // 1순위: 2021~22 고점 실거래 매매가 ÷ 그 상승장 동안 가장 많이 거래된 높은 전세가
+  if(ty.pk21){const p=ty.pk21;return {r:p[0],src:"trade",t:p[1],date:p[2],j:p[3],n:p[4],how:p[5],cnt:p[6]}}
   // 거래가 부족하면 고점 분기 전후 평균으로 대체
   const q=(ty.q||[]).filter(x=>x[0]>="2021Q1"&&x[0]<="2022Q4");
   const pk=q.reduce((b,x)=>x[1]!=null&&(!b||x[1]>b[1])?x:b,null);if(!pk)return null;
@@ -741,7 +741,7 @@ function renderMarket(m){
   $("mk21").textContent=ty.top21?ty.top21[1]+"억":"–";
   $("mk21D").textContent=ty.top21?`${ymd(ty.top21[0])} · ${ty.top21[2]}층 · 추정 시세는 ${vsNow(ty.top21[1],nowP).replace("현재 대비 ","")}`:"2021~22년 거래 없음";
   const h=t.hist;$("mk21R").textContent=h?h.r+"%":"–";
-  $("mk21RD").textContent=h?(h.src==="trade"?`고점 매매 ${h.t}억 (${ymd(h.date)}) ÷ 같은 시기 전세 실거래 ${h.j}억 (±${h.w}개월 ${h.n}건 중위) → 예상 고점 계산에 사용`:`${h.q.replace("Q"," ")}분기 전후 매매 평균 ${h.t}억 / 전세 평균 ${h.j}억 (고점 시기 전세 거래 없음) → 예상 고점 계산에 사용`):"그때 거래가 부족해 입지 등급 기본값 사용";
+  $("mk21RD").textContent=h?(h.src==="trade"?`고점 매매 ${h.t}억 (${ymd(h.date)}) ÷ 2021~22 전세 대표가 ${h.j}억 (${h.how==="mode"?`전세 ${h.n}건 중 ${h.j}억대 ${h.cnt}건으로 가장 많이 거래`:`전세 ${h.n}건 중 상위 25% 가격`}) → 예상 고점 계산에 사용`:`${h.q.replace("Q"," ")}분기 전후 매매 평균 ${h.t}억 / 전세 평균 ${h.j}억 (고점 시기 전세 거래 없음) → 예상 고점 계산에 사용`):"그때 거래가 부족해 입지 등급 기본값 사용";
   $("mkTopD").textContent=ty.top?`${ymd(ty.top[0])} · ${ty.top[2]}층 · 추정 시세는 ${vsNow(ty.top[1],nowP).replace("현재 대비 ","")}`:"";
   $("mkTPk").textContent=ty.tPk?ty.tPk[1]+"억":"–";
   $("mkTPkD").textContent=ty.tPk?`${ymd(ty.tPk[0])} 전후 3개월 · ${vsNow(ty.tPk[1],nowP)}`:"거래가 적어 계산 불가";
@@ -1120,7 +1120,7 @@ function render(focusId){
   const up=(pr.peak/t.price-1)*100;
   $("kPeakD").textContent=`현재 대비 ${up>=0?"+":""}${f1(up)}% · 전세가율 ${p.floor}%`;
   $("formula").innerHTML=`지금 전세 <b>${f1(t.jeon)}억</b> × (1+${p.grow}%)<sup>${p.years}년</sup> = 고점 때 전세 <b>${f1(pr.j)}억</b><br>
-    ÷ 고점 전세가율 <b>${p.floor}%</b> ${p.auto.src==="hist"&&t.floor==null?"(이 단지가 2021년 고점에 실제로 내려갔던 비율)":"(입지 등급 기본값 · 직접 수정 가능)"} = 예상 고점 <b>${f1(pr.peak)}억</b>`;
+    ÷ 고점 전세가율 <b>${p.floor}%</b> ${p.auto.src==="hist"&&t.floor==null?"(2021 고점 매매가 ÷ 그 시기 많이 거래된 전세가)":"(입지 등급 기본값 · 직접 수정 가능)"} = 예상 고점 <b>${f1(pr.peak)}억</b>`;
   chart(t,p);
   // 민감도
   const rs=[35,40,45,50,55,60],gs=[p.grow-2,p.grow,p.grow+2];

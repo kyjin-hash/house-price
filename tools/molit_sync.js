@@ -124,16 +124,20 @@ function lastAdj(rows, idx, valueOf, useFloor) {
   return [r1(valueOf(r) * f * fl), r1(valueOf(r)), r.ym + String(r.dd).padStart(2, '0'), r.f ?? null, Math.round((f * fl - 1) * 1000) / 10];
 }
 
-// 2021~22 고점 실거래 매매가 ÷ 같은 시기(±1개월, 없으면 ±2개월) 전세 실거래 중위값
+// 2021~22 고점 실거래 매매가 ÷ 그 상승장(2021~22) 동안 '많이 거래된 높은 전세가'
+// 전세 대표값: 중간값 이상 거래를 0.25억 단위로 묶어 가장 많이 찍힌 가격대(동률이면 높은 쪽).
+// 반복 거래가 없으면 상위 25% 지점. 어쩌다 한 번 찍힌 최고가와 갱신성 저가 계약은 자연히 빠짐
 function peakRatio(top, je) {
   if (!top) return null;
-  const i = YMS.indexOf(top.ym);
-  for (const w of [1, 2]) {
-    const win = new Set(YMS.slice(Math.max(0, i - w), i + w + 1));
-    const js = je.filter(r => win.has(r.ym)).map(r => r.dep);
-    if (js.length) { const jm = median(js); return [Math.round(jm / top.p * 1000) / 10, r1(top.p), top.ym + String(top.dd).padStart(2, '0'), r1(jm), js.length, w]; }
-  }
-  return null;
+  const v = je.filter(r => r.ym >= '202101' && r.ym <= '202212').map(r => r.dep).sort((x, y) => x - y);
+  if (v.length < 2) return null;
+  const med = v[Math.floor((v.length - 1) / 2)];
+  const bins = {}; for (const x of v) if (x >= med) { const k = Math.round(x / 2500) * 2500; (bins[k] = bins[k] || []).push(x); }
+  const best = Object.entries(bins).sort((p, q) => q[1].length - p[1].length || q[0] - p[0])[0];
+  let rep, how, cnt;
+  if (best && best[1].length >= 2) { rep = median(best[1]); how = 'mode'; cnt = best[1].length; }
+  else { rep = v[Math.floor((v.length - 1) * 0.75)]; how = 'p75'; cnt = 1; }
+  return [Math.round(rep / top.p * 1000) / 10, r1(top.p), top.ym + String(top.dd).padStart(2, '0'), r1(rep), v.length, how, cnt];
 }
 function summarize(regionRows) {
   const allTr = [], allJe = [];
