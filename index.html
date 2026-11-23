@@ -17,6 +17,7 @@
   --mae:#e23a50; --maeSoft:#fdebee;
   --band:#eceff2;
   --good:#1f9254; --goodSoft:#e4f5ea; --warn:#b97f00; --warnSoft:#fbf1d9; --bad:#d6403a; --badSoft:#fbe6e4;
+  --sup:#c25e00; --supSoft:#fdf0e3; --supHero:#fff4e8; --onSup:#ffffff;
   --chip:#eef1f4; --s1:#2f6fe0; --s2:#e23a50; --s3:#b97f00; --cup:#2f6fe0; --clow:#d9822b; --shadow:0 1px 2px rgba(25,31,40,.04),0 6px 20px rgba(25,31,40,.05);
   --f-body:"IBM Plex Sans KR",system-ui,-apple-system,"Malgun Gothic",sans-serif;
   --f-num:"Space Grotesk","IBM Plex Sans KR",ui-monospace,sans-serif;
@@ -27,6 +28,7 @@
   --accent:#2fd18b; --accentSoft:#163a29; --onAccent:#06140c;
   --jeon:#6aa6ff; --jeonSoft:#16283f; --mae:#ff6b7f; --maeSoft:#3a1c22; --band:#232a31;
   --good:#4cc47f; --goodSoft:#14301f; --warn:#e7b03a; --warnSoft:#33290f; --bad:#ff6b63; --badSoft:#3a1a19;
+  --sup:#f0a050; --supSoft:#3a2a16; --supHero:#2a1f12; --onSup:#1a1006;
   --chip:#232a31; --s1:#6aa6ff; --s2:#ff6b7f; --s3:#e7b03a; --cup:#6aa6ff; --clow:#f0a050; --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#101418; --panel:#1a1f25; --ink:#eceff3; --ink2:#aeb6c1; --muted:#7d8793; --line:#2a3139;
@@ -34,6 +36,7 @@
   --accent:#2fd18b; --accentSoft:#163a29; --onAccent:#06140c;
   --jeon:#6aa6ff; --jeonSoft:#16283f; --mae:#ff6b7f; --maeSoft:#3a1c22; --band:#232a31;
   --good:#4cc47f; --goodSoft:#14301f; --warn:#e7b03a; --warnSoft:#33290f; --bad:#ff6b63; --badSoft:#3a1a19;
+  --sup:#f0a050; --supSoft:#3a2a16; --supHero:#2a1f12; --onSup:#1a1006;
   --chip:#232a31; --s1:#6aa6ff; --s2:#ff6b7f; --s3:#e7b03a; --cup:#6aa6ff; --clow:#f0a050; --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.55}
 .hero{background:var(--hero);color:var(--heroInk)}
@@ -135,6 +138,18 @@ td.n,th.n{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular
 #region td:first-child{font-weight:700;white-space:nowrap}
 #region td small{display:block;color:var(--muted);font-weight:400;font-size:12px}
 #region .hint{display:block;margin-top:4px}
+.vtabs{display:flex;gap:6px;flex-wrap:wrap}
+.vtabs button{font:inherit;font-weight:700;font-size:14px;padding:9px 18px;border-radius:999px;border:1px solid var(--line);background:var(--hero2);color:var(--heroMuted);cursor:pointer;transition:background .15s,color .15s}
+.vtabs button[data-v="main"][aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}
+.vtabs button[data-v="sup"]{color:var(--sup);border-color:var(--sup)}
+.vtabs button[data-v="sup"][aria-selected="true"]{background:var(--sup);color:var(--onSup)}
+body.v-sup .hero{background:var(--supHero)}
+body.v-sup .hero .eyebrow{color:var(--sup)}
+body.v-sup #scen,body.v-sup #heroChips,body.v-sup #scenNote,body.v-sup .hero .sub{display:none!important}
+body.v-sup .wrap>*:not(#supPanel){display:none!important}
+body:not(.v-sup) #supPanel{display:none!important}
+#supPanel{border-top:4px solid var(--sup)}
+#supPanel .pill.good{color:var(--good);background:var(--goodSoft)}
 .supsels{display:flex;gap:6px;flex-wrap:wrap}.supsels select{max-width:190px}
 a.hchip{text-decoration:none;color:inherit;cursor:pointer}
 .supgrid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:start}
@@ -309,6 +324,7 @@ th{font-size:12px}
 
 
 <header class="hero"><div class="hero-in">
+  <nav class="vtabs" role="tablist" aria-label="화면 선택"><button role="tab" data-v="main" aria-selected="true">시세 · 고점 분석</button><button role="tab" data-v="sup" aria-selected="false">입주물량 vs 수요</button></nav>
   <div class="head">
     <div>
       <div class="eyebrow">전세가율로 읽는 집값</div>
@@ -332,6 +348,18 @@ th{font-size:12px}
 </div></header>
 
 <div class="wrap">
+  <!-- 입주물량 vs 수요 -->
+  <section class="panel" id="supPanel">
+    <div class="head"><div><h2>입주물량 vs 수요 · <span id="supReg"></span></h2><p class="hint" id="supHint"></p></div><div class="supsels"><select id="supSel0" aria-label="지역 1"></select><select id="supSel1" aria-label="지역 2 (합산)"></select><select id="supSel2" aria-label="지역 3 (합산)"></select></div></div>
+    <div class="supgrid">
+      <div class="chartbox"><svg id="supChart" viewBox="0 0 560 260" role="img" aria-label="연도별 입주물량과 적정수요"></svg><div class="tip" id="supTip" hidden></div>
+        <div class="legend"><span><i style="background:var(--jeon);height:8px"></i>입주물량 (청약홈 공급세대)</span><span><i style="background:var(--mae)"></i>적정수요 (인구 × 0.5%)</span></div></div>
+      <div style="display:grid;gap:12px;min-width:0"><div class="supstats" id="supStats"></div><div><b style="font-size:13px">다가오는 입주</b><ul class="suplist" id="supList"></ul></div></div>
+    </div>
+    <details class="more" open><summary><strong>지역별 순위</strong><span class="hint">향후 2년 연평균 입주물량 ÷ 적정수요 · 줄을 누르면 지역 1이 그 지역으로 바뀌어요</span></summary><div class="tbl"><table id="supRank"></table></div></details>
+    <details class="how"><summary>어떻게 계산하나요?</summary><ul><li><b>입주물량</b>: 한국부동산원 청약홈 아파트 분양공고의 입주예정월·공급세대수를 구별로 합산 (매일 자동 갱신)</li><li><b>여러 지역 합산</b>: 위 선택 칸 3개로 최대 3개 지역을 골라 인구·수요·입주물량을 합쳐 봅니다 (예: 마포+서대문+은평)</li><li><b>적정수요</b>: 행정안전부 주민등록 인구 × 0.5% (부동산지인과 같은 기준)</li><li>판단: 향후 2년 연평균 입주가 수요의 150% 이상 <b>과잉</b>, 100~150% <b>많음</b>, 50~100% <b>적정</b>, 50% 미만 <b>부족</b></li><li>한계: 청약홈을 거친 분양분만 잡혀 재건축·재개발 <b>조합원분, 임대, 오피스텔은 빠짐</b> → 정비사업이 많은 서울은 실제보다 적게 보일 수 있어요. 청약홈 자료가 2020년 무렵부터라 그 이전 분양의 입주(~2022년)는 덜 잡혀요.</li></ul></details>
+  </section>
+
   <!-- 단지 시세 -->
   <section class="panel" id="lookup">
     <div class="head"><div><h2>단지 시세 조회</h2><p class="hint status" id="dataStatus"></p></div></div>
@@ -506,18 +534,6 @@ th{font-size:12px}
       <div class="kpi"><span class="l">B. 비교 단지 배율 방식 (평균)</span><span class="v" id="mB"></span><span class="d" id="mBd"></span></div>
       <div class="kpi hero"><span class="l">종합 예상가 (A·B 평균)</span><span class="v" id="mC"></span><span class="d" id="mCd"></span></div>
     </div>
-  </section>
-
-  <!-- 입주물량 vs 수요 -->
-  <section class="panel" id="supPanel">
-    <div class="head"><div><h2>입주물량 vs 수요 · <span id="supReg"></span></h2><p class="hint" id="supHint"></p></div><div class="supsels"><select id="supSel0" aria-label="지역 1"></select><select id="supSel1" aria-label="지역 2 (합산)"></select><select id="supSel2" aria-label="지역 3 (합산)"></select></div></div>
-    <div class="supgrid">
-      <div class="chartbox"><svg id="supChart" viewBox="0 0 560 260" role="img" aria-label="연도별 입주물량과 적정수요"></svg><div class="tip" id="supTip" hidden></div>
-        <div class="legend"><span><i style="background:var(--jeon);height:8px"></i>입주물량 (청약홈 공급세대)</span><span><i style="background:var(--mae)"></i>적정수요 (인구 × 0.5%)</span></div></div>
-      <div style="display:grid;gap:12px;min-width:0"><div class="supstats" id="supStats"></div><div><b style="font-size:13px">다가오는 입주</b><ul class="suplist" id="supList"></ul></div></div>
-    </div>
-    <details class="more"><summary><strong>지역별 순위</strong><span class="hint">향후 2년 연평균 입주물량 ÷ 적정수요 · 줄을 누르면 지역 1이 그 지역으로 바뀌어요</span></summary><div class="tbl"><table id="supRank"></table></div></details>
-    <details class="how"><summary>어떻게 계산하나요?</summary><ul><li><b>입주물량</b>: 한국부동산원 청약홈 아파트 분양공고의 입주예정월·공급세대수를 구별로 합산 (매일 자동 갱신)</li><li><b>여러 지역 합산</b>: 위 선택 칸 3개로 최대 3개 지역을 골라 인구·수요·입주물량을 합쳐 봅니다 (예: 마포+서대문+은평)</li><li><b>적정수요</b>: 행정안전부 주민등록 인구 × 0.5% (부동산지인과 같은 기준)</li><li>판단: 향후 2년 연평균 입주가 수요의 150% 이상 <b>과잉</b>, 100~150% <b>많음</b>, 50~100% <b>적정</b>, 50% 미만 <b>부족</b></li><li>한계: 청약홈을 거친 분양분만 잡혀 재건축·재개발 <b>조합원분, 임대, 오피스텔은 빠짐</b> → 정비사업이 많은 서울은 실제보다 적게 보일 수 있어요. 청약홈 자료가 2020년 무렵부터라 그 이전 분양의 입주(~2022년)는 덜 잡혀요.</li></ul></details>
   </section>
 
   <!-- 지역별 -->
@@ -1221,8 +1237,18 @@ function renderSupply(){
   $("supList").innerHTML=!SUP.supplyOk?'<li class="hint">청약홈 승인 후 표시돼요</li>':up.length?up.map(a=>`<li><span>${a[0]}</span><span class="num">${a[1].slice(0,4)}.${a[1].slice(4)} · ${a[2].toLocaleString()}세대</span></li>`).join(""):'<li class="hint">청약홈에 잡힌 입주 예정 단지가 없어요</li>';
   const rows=Object.keys(R).filter(x=>R[x].demand).map(x=>{const v=supNext2(R[x]);return [x,v,Math.round(v/R[x].demand*100)]}).sort((a,b)=>b[2]-a[2]);
   $("supRank").innerHTML=`<thead><tr><th>지역</th><th class="n">인구</th><th class="n">적정수요</th><th class="n">향후 2년 연평균 입주</th><th class="n">수요 대비</th><th>판단</th></tr></thead><tbody>`+rows.map(([x,v,p])=>{const j=supJudge(p);return `<tr data-k="${x}"${ks.includes(x)?' class="on"':""}><td>${names[x]||x}</td><td class="n">${(R[x].pop||0).toLocaleString()}</td><td class="n">${R[x].demand.toLocaleString()}</td><td class="n">${SUP.supplyOk?Math.round(v).toLocaleString():"–"}</td><td class="n">${SUP.supplyOk?p+"%":"–"}</td><td>${SUP.supplyOk?`<span class="pill ${j[0]}">${j[1]}</span>`:""}</td></tr>`}).join("")+"</tbody>";
-  $("supRank").querySelectorAll("tbody tr").forEach(tr=>tr.onclick=()=>{S.supRegs[0]=tr.dataset.k;save();renderSupply();$("supPanel").scrollIntoView({behavior:"smooth",block:"start"})});
+  $("supRank").querySelectorAll("tbody tr").forEach(tr=>tr.onclick=()=>{S.supRegs[0]=tr.dataset.k;save();renderSupply();window.scrollTo({top:0,behavior:"smooth"})});
 }
+function setView(v,push){
+  document.body.classList.toggle("v-sup",v==="sup");
+  document.querySelectorAll(".vtabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.v===v));
+  const h=v==="sup"?"#supply":"";if(push!==false&&location.hash!==h)history.replaceState(null,"",location.pathname+location.search+h);
+  document.title=v==="sup"?"입주물량 vs 수요 · 부동산 시그널":"부동산 시그널";window.scrollTo(0,0);
+  if(v==="sup")try{renderSupply()}catch(e){console.error(e)}
+}
+document.querySelectorAll(".vtabs button").forEach(b=>b.onclick=()=>setView(b.dataset.v));
+setView(/^#(supply|supPanel)$/.test(location.hash)?"sup":"main",false);
+window.addEventListener("hashchange",()=>setView(/^#(supply|supPanel)$/.test(location.hash)?"sup":"main",false));
 function render(focusId){
   try{renderSupply()}catch(e){console.error(e)}
   const sc=SCEN[S.scen];
@@ -1306,8 +1332,7 @@ function render(focusId){
     `<span class="hchip">사이클 <b>${S.stage+1}단계</b> ${STAGES[S.stage].t}</span>`+
     `<span class="hchip">상급지 전세가율 <b>${f1(sgg.top)}%</b></span><span class="hchip">하급지 <b>${f1(sgg.low)}%</b></span>`+
     (()=>{const C=cycleCfg();return `<span class="hchip">외곽 <b>${C.mrOut!=null?f1(C.mrOut)+"%":"–"}</b></span>`+(C.sig.length?`<span class="hchip warn">하락 신호 <b>${C.sig.length}</b></span>`:`<span class="hchip">하락 전환 <b>${f1(C.ds)}</b>년</span>`)})()+
-    `<span class="hchip">전세대출 <b>${sgg.loan}%</b></span>`+
-    `<a class="hchip" href="#supPanel">입주물량 vs 수요 <b>보기 ↓</b></a>`;
+    `<span class="hchip">전세대출 <b>${sgg.loan}%</b></span>`;
   $("hStage").innerHTML=(S.stage+1)+"<small>/6단계</small>";
   $("hStageD").textContent=STAGES[S.stage].t+(S.stageManual?" (직접 선택)":" (추정)");
   // 지역
