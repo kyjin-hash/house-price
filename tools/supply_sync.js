@@ -136,12 +136,11 @@ async function applyhome() {
   const sup = {}, apts = {}, unmatched = [];
   let n = 0, from = null;
   if (ah.rows) {
-    if (ah.rows[0]) console.log('샘플 필드: ' + Object.entries(ah.rows[0]).filter(([k]) => /SUPLY|HSHLD|CO$|MVN/.test(k)).map(([k, v]) => k + '=' + v).join(', '));
     const seen = new Set();
     for (const r of ah.rows) {
       const id = r.HOUSE_MANAGE_NO; if (seen.has(id)) continue; seen.add(id);
       if (r.HOUSE_SECD && r.HOUSE_SECD !== '01') continue; // APT만
-      const ym = String(r.MVN_PREARNGE_YM || '').replace(/\D/g, '').slice(0, 6), hh = num(r.TOT_SUPLY_HSHLDRCO);
+      const ym = String(r.MVN_PREARNGE_YM || '').replace(/\D/g, '').slice(0, 6), hh = num(r.TOT_SUPLY_HSHLDCO);
       if (ym.length !== 6 || !hh) continue;
       const k = matchRegion(String(r.HSSPLY_ADRES || ''), idx);
       if (!k) { unmatched.push(`${r.HOUSE_NM} · ${r.HSSPLY_ADRES}`); continue; }
