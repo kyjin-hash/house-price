@@ -136,7 +136,7 @@ async function applyhome() {
   const sup = {}, apts = {}, unmatched = [];
   let n = 0, from = null;
   if (ah.rows) {
-    if (ah.rows[0]) console.log('샘플 필드: ' + JSON.stringify(ah.rows[0]).slice(0, 1500));
+    if (ah.rows[0]) console.log('샘플 필드: ' + Object.entries(ah.rows[0]).filter(([k]) => /SUPLY|HSHLD|CO$|MVN/.test(k)).map(([k, v]) => k + '=' + v).join(', '));
     const seen = new Set();
     for (const r of ah.rows) {
       const id = r.HOUSE_MANAGE_NO; if (seen.has(id)) continue; seen.add(id);
