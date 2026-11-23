@@ -135,6 +135,13 @@ td.n,th.n{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular
 #region td:first-child{font-weight:700;white-space:nowrap}
 #region td small{display:block;color:var(--muted);font-weight:400;font-size:12px}
 #region .hint{display:block;margin-top:4px}
+.supgrid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:start}
+.supstats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.supstats div{background:var(--bg);border-radius:12px;padding:10px 12px;display:grid;gap:2px}
+.supstats .l{font-size:12px;color:var(--muted)}.supstats .v{font-family:var(--f-num);font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.suplist{margin:0;padding:0;list-style:none;display:grid;gap:6px;font-size:13px}.suplist li{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding-bottom:6px}.suplist li:last-child{border-bottom:0}.suplist .num{color:var(--ink2);white-space:nowrap}
+#supRank tbody tr{cursor:pointer}#supRank tbody tr:hover{background:var(--bg)}#supRank tr.on{background:var(--accentSoft)}
+@media (max-width:760px){.supgrid{grid-template-columns:1fr}}
 .reason{font-size:12px;color:var(--ink2);min-width:240px}
 .watch{display:grid;gap:10px;margin:0;padding:0;list-style:none}
 .watch li{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
@@ -499,6 +506,18 @@ th{font-size:12px}
     </div>
   </section>
 
+  <!-- 입주물량 vs 수요 -->
+  <section class="panel" id="supPanel">
+    <div class="head"><div><h2>입주물량 vs 수요 · <span id="supReg"></span></h2><p class="hint" id="supHint"></p></div><select id="supSel" aria-label="지역 선택"></select></div>
+    <div class="supgrid">
+      <div class="chartbox"><svg id="supChart" viewBox="0 0 560 260" role="img" aria-label="연도별 입주물량과 적정수요"></svg><div class="tip" id="supTip" hidden></div>
+        <div class="legend"><span><i style="background:var(--jeon);height:8px"></i>입주물량 (청약홈 공급세대)</span><span><i style="background:var(--mae)"></i>적정수요 (인구 × 0.5%)</span></div></div>
+      <div style="display:grid;gap:12px;min-width:0"><div class="supstats" id="supStats"></div><div><b style="font-size:13px">다가오는 입주</b><ul class="suplist" id="supList"></ul></div></div>
+    </div>
+    <details class="more"><summary><strong>지역별 순위</strong><span class="hint">향후 2년 연평균 입주물량 ÷ 적정수요 · 줄을 누르면 위 차트가 그 지역으로 바뀌어요</span></summary><div class="tbl"><table id="supRank"></table></div></details>
+    <details class="how"><summary>어떻게 계산하나요?</summary><ul><li><b>입주물량</b>: 한국부동산원 청약홈 아파트 분양공고의 입주예정월·공급세대수를 구별로 합산 (매일 자동 갱신)</li><li><b>적정수요</b>: 행정안전부 주민등록 인구 × 0.5% (부동산지인과 같은 기준)</li><li>판단: 향후 2년 연평균 입주가 수요의 150% 이상 <b>과잉</b>, 100~150% <b>많음</b>, 50~100% <b>적정</b>, 50% 미만 <b>부족</b></li><li>한계: 청약홈을 거친 분양분만 잡혀 재건축·재개발 <b>조합원분, 임대, 오피스텔은 빠짐</b> → 정비사업이 많은 서울은 실제보다 적게 보일 수 있어요. 청약홈 자료가 2020년 무렵부터라 그 이전 분양의 입주(~2022년)는 덜 잡혀요.</li></ul></details>
+  </section>
+
   <!-- 지역별 -->
   <section class="panel">
     <div class="head"><h2>지역별 전망 · <span id="regScen"></span></h2><span class="hint">↑↑ 급등 · ↑ 상승 · → 보합 · ↓ 하락 · ↓↓ 급락</span></div>
@@ -625,6 +644,8 @@ fetch("data/index.json").then(r=>r.ok?r.json():Promise.reject(r.status)).then(j=
   DB=j;DB.list=j.apts.map(x=>{const a={n:x[0],d:x[1],l:x[2],y:x[3],vol:x[4],p:x[5],areas:x[6],g:j.regions[x[2]]||""};a.k=norm(a.n+a.d+a.g);a.kn=norm(a.n);return a});
   render();
 }).catch(()=>{DB=false;render()});
+let SUP=null;
+fetch("data/supply.json").then(r=>r.ok?r.json():Promise.reject(r.status)).then(j=>{SUP=j;render()}).catch(()=>{SUP=false;render()});
 function loadRegion(l){
   if(!REG[l])REG[l]=fetch("data/r/"+l+".json").then(r=>r.ok?r.json():Promise.reject(r.status)).then(j=>{j.map=new Map(j.apts.map(a=>[a.d+"|"+a.n,a]));REG[l].data=j;return j});
   return REG[l];
@@ -1036,8 +1057,12 @@ function chart(t,p){
    거품 완성 신호로 보고 하락 시작을 지금부터 6개월 뒤로 앞당김 */
 const NOW_Y=(()=>{const d=new Date();return d.getFullYear()+d.getMonth()/12})();
 // 지역 공급 부담: 최근 1년 전월세 계약 중 입주 2년 이내 신축 비중
+function supNext2(r){const d=new Date(),a=d.getFullYear()*100+d.getMonth()+1,b=a+200;let n=0;for(const x of r.apts)if(+x[1]>a&&+x[1]<=b)n+=x[2];return n/2}
+function supJudge(ratio){return ratio>=150?["bad","공급 과잉",1]:ratio>=100?["warn","공급 많음",3]:ratio>=50?["good","적정",5]:["good","공급 부족",5]}
 function supplyInfo(){
-  const l=S.t&&S.t.apt?S.t.apt.split("|")[0]:null;const st=l&&DB&&DB.regionStats&&DB.regionStats[l];const sp=st&&st.supply;
+  const l=S.t&&S.t.apt?S.t.apt.split("|")[0]:null;
+  {const r=l&&SUP&&SUP.supplyOk&&SUP.regions[l];if(r&&r.demand){const y2=supNext2(r),ratio=Math.round(y2/r.demand*100),[,lab,rate]=supJudge(ratio);
+    return {rate,share:null,ratio,label:lab,g:DB&&DB.regions?DB.regions[l]:"",text:`${DB&&DB.regions?DB.regions[l]:""} 향후 2년 연평균 입주 ${Math.round(y2).toLocaleString()}세대 = 적정수요 ${r.demand.toLocaleString()}세대의 ${ratio}% → ${lab}, 고점 이후 전세 연 ${rate}% (150% 이상 1% · 100~150% 3% · 100% 미만 5%)`}}}const st=l&&DB&&DB.regionStats&&DB.regionStats[l];const sp=st&&st.supply;
   if(!sp)return {rate:5,share:null,label:"공급 자료 없음",g:l&&DB&&DB.regions?DB.regions[l]:""};
   const rate=sp.share>20?1:sp.share>10?3:5;
   return {rate,share:sp.share,newApts:sp.newApts,label:sp.share>20?"공급 과잉":sp.share>10?"공급 다소 많음":"공급 보통",g:DB.regions[l]};
@@ -1158,7 +1183,39 @@ function renderScen(t){
 }
 
 /* ---------- 렌더 ---------- */
+function renderSupply(){
+  const sel=$("supSel");if(!SUP||!DB||!DB.regions){$("supHint").textContent=SUP===false?"입주물량 자료를 아직 만들지 못했어요 (다음 자동 갱신 때 생겨요)":"불러오는 중…";return}
+  const R=SUP.regions,names=DB.regions,cur=S.t&&S.t.apt?S.t.apt.split("|")[0]:null;
+  if(!sel.options.length){sel.innerHTML='<option value="auto">분석 대상 단지 지역</option>'+Object.keys(R).sort((a,b)=>(names[a]||"").localeCompare(names[b]||"")).map(k=>`<option value="${k}">${names[k]||k}</option>`).join("");sel.onchange=()=>{S.supReg=sel.value==="auto"?null:sel.value;save();renderSupply()}}
+  const k=S.supReg&&R[S.supReg]?S.supReg:(cur&&R[cur]?cur:"11440");sel.value=S.supReg&&R[S.supReg]?S.supReg:"auto";
+  const r=R[k];$("supReg").textContent=names[k]||k;
+  $("supHint").textContent=`인구 ${SUP.popYm?SUP.popYm.slice(0,4)+"."+SUP.popYm.slice(4):""} 기준 · `+(SUP.supplyOk?`청약홈 분양공고 ${SUP.supplyFrom||""}~ · 갱신 ${SUP.updated}`:"입주물량은 청약홈 API 승인 후 자동으로 채워져요 (지금은 수요만)");
+  const d=new Date(),Y=d.getFullYear(),years=[];for(let y=Y-2;y<=Y+3;y++)years.push(y);
+  const W=560,H=260,L=48,Rr=16,T=22,B=28,dem=r.demand||0,vals=years.map(y=>r.sup[y]||0),maxV=Math.max(dem*1.25,...vals,10)*1.1;
+  const bw=(W-L-Rr)/years.length,X=i=>L+bw*i,Yv=v=>T+(H-T-B)*(1-v/maxV),tick=niceStep(maxV/4);let g="";
+  for(let v=0;v<=maxV;v+=tick)g+=`<line x1="${L}" x2="${W-Rr}" y1="${Yv(v)}" y2="${Yv(v)}" stroke="var(--line)"/><text x="${L-6}" y="${Yv(v)+4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--f-num)">${v>=1e4?(v/1e4).toFixed(v%1e4?1:0)+"만":v.toLocaleString()}</text>`;
+  years.forEach((y,i)=>{const v=vals[i],x=X(i)+bw*.22,w=bw*.56,top=Yv(v),h=Math.max(0,H-B-top);
+    g+=`<path d="M${x} ${H-B}V${top+Math.min(4,h)}q0 -4 4 -4h${w-8}q4 0 4 4V${H-B}Z" fill="var(--jeon)" opacity="${y<Y?.45:1}"/>`;
+    if(SUP.supplyOk)g+=`<text x="${x+w/2}" y="${top-6}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--ink2)" font-family="var(--f-num)">${v.toLocaleString()}</text>`;
+    g+=`<text x="${x+w/2}" y="${H-9}" text-anchor="middle" font-size="11" fill="${y===Y?"var(--ink)":"var(--muted)"}" font-weight="${y===Y?700:400}" font-family="var(--f-num)">${y}</text>`});
+  if(dem)g+=`<line x1="${L}" x2="${W-Rr}" y1="${Yv(dem)}" y2="${Yv(dem)}" stroke="var(--mae)" stroke-width="2" stroke-dasharray="6 4"/><text x="${W-Rr}" y="${Yv(dem)-6}" text-anchor="end" font-size="11" font-weight="700" fill="var(--ink)">적정수요 ${dem.toLocaleString()}</text>`;
+  g+=years.map((y,i)=>`<rect class="h" data-i="${i}" x="${X(i)}" y="${T}" width="${bw}" height="${H-T-B}" fill="transparent"/>`).join("");
+  const svg=$("supChart");svg.innerHTML=g;const tip=$("supTip");
+  svg.querySelectorAll("rect.h").forEach(el=>{const show=()=>{const i=+el.dataset.i,y=years[i],v=vals[i],ap=r.apts.filter(a=>a[1].startsWith(y));
+    tip.hidden=false;tip.innerHTML=`<b>${y}년 입주</b><br>${SUP.supplyOk?v.toLocaleString()+"세대 · "+ap.length+"개 단지"+(dem?" · 수요의 "+Math.round(v/dem*100)+"%":""):"공급 자료 대기 중"}`;
+    const rc=svg.getBoundingClientRect();tip.style.left=Math.min(rc.width-170,Math.max(0,(X(i)+bw/2)/W*rc.width-60))+"px";tip.style.top="0px"};
+    el.addEventListener("pointerenter",show);el.addEventListener("pointerdown",show);el.addEventListener("pointerleave",()=>tip.hidden=true)});
+  const y2=supNext2(r),ratio=dem?Math.round(y2/dem*100):null,jd=ratio!=null&&SUP.supplyOk?supJudge(ratio):null;
+  $("supStats").innerHTML=`<div><span class="l">인구</span><span class="v">${r.pop?r.pop.toLocaleString():"–"}</span></div><div><span class="l">적정수요 / 년</span><span class="v">${dem?dem.toLocaleString():"–"}</span></div>`+
+    `<div><span class="l">향후 2년 연평균 입주</span><span class="v">${SUP.supplyOk?Math.round(y2).toLocaleString():"–"}</span></div><div><span class="l">수요 대비</span><span class="v">${jd?ratio+"%":"–"}</span>${jd?`<span class="pill ${jd[0]}">${jd[1]}</span>`:""}</div>`;
+  const ym=Y*100+d.getMonth()+1,up=r.apts.filter(a=>+a[1]>=ym).slice(0,10);
+  $("supList").innerHTML=!SUP.supplyOk?'<li class="hint">청약홈 승인 후 표시돼요</li>':up.length?up.map(a=>`<li><span>${a[0]}</span><span class="num">${a[1].slice(0,4)}.${a[1].slice(4)} · ${a[2].toLocaleString()}세대</span></li>`).join(""):'<li class="hint">청약홈에 잡힌 입주 예정 단지가 없어요</li>';
+  const rows=Object.keys(R).filter(x=>R[x].demand).map(x=>{const v=supNext2(R[x]);return [x,v,Math.round(v/R[x].demand*100)]}).sort((a,b)=>b[2]-a[2]);
+  $("supRank").innerHTML=`<thead><tr><th>지역</th><th class="n">인구</th><th class="n">적정수요</th><th class="n">향후 2년 연평균 입주</th><th class="n">수요 대비</th><th>판단</th></tr></thead><tbody>`+rows.map(([x,v,p])=>{const j=supJudge(p);return `<tr data-k="${x}"${x===k?' class="on"':""}><td>${names[x]||x}</td><td class="n">${(R[x].pop||0).toLocaleString()}</td><td class="n">${R[x].demand.toLocaleString()}</td><td class="n">${SUP.supplyOk?Math.round(v).toLocaleString():"–"}</td><td class="n">${SUP.supplyOk?p+"%":"–"}</td><td>${SUP.supplyOk?`<span class="pill ${j[0]}">${j[1]}</span>`:""}</td></tr>`}).join("")+"</tbody>";
+  $("supRank").querySelectorAll("tbody tr").forEach(tr=>tr.onclick=()=>{S.supReg=tr.dataset.k;save();renderSupply();$("supPanel").scrollIntoView({behavior:"smooth",block:"start"})});
+}
 function render(focusId){
+  try{renderSupply()}catch(e){console.error(e)}
   const sc=SCEN[S.scen];
   document.querySelectorAll("#scen button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.s===S.scen));
   $("scenNote").innerHTML="<b>"+sc.n+"</b> · "+sc.note;
@@ -1234,7 +1291,7 @@ function render(focusId){
   $("hTop").innerHTML=f1(S.sig.top)+"<small>%</small>";
   $("hTopD").textContent=S.sig.top<=40?"상급지 상승 마무리 구간":"40%까지 "+f1(S.sig.top-40)+"%p 남음";
   {const C=cycleCfg();[["cDS",C.ds],["cDE",C.de],["cDR",C.dr],["cJG",C.jg]].forEach(([id,v])=>{if(focusId!==id)$(id).value=v});
-   $("cycHint").textContent=(C.sp.share!=null?`${C.sp.g} 공급: 최근 1년 전월세 계약 중 입주 2년 이내 신축 ${C.sp.share}% (${C.sp.newApts}개 단지) → ${C.sp.label}, 고점 이후 전세 연 ${C.sp.rate}% (10% 이하 5% · 10~20% 3% · 20% 초과 1%)${S.cyc&&S.cyc.jg!=null?" · 지금은 직접 입력 "+C.jg+"%":""}. `:"")+(C.sig.length?"⚠ "+C.sig.join(" · ")+(C.early?" → 하락 시작을 앞당겼어요":""):"하락 신호 없음")+` · 신호 기준: 하급지 전세가율 40% 이하, 외곽(일산·파주·옥정 등) 50% 이하${C.mrOut!=null?" (현재 외곽 "+f1(C.mrOut)+"%)":""}`;}
+   $("cycHint").textContent=(C.sp.text?C.sp.text+(S.cyc&&S.cyc.jg!=null?" · 지금은 직접 입력 "+C.jg+"%":"")+". ":C.sp.share!=null?`${C.sp.g} 공급: 최근 1년 전월세 계약 중 입주 2년 이내 신축 ${C.sp.share}% (${C.sp.newApts}개 단지) → ${C.sp.label}, 고점 이후 전세 연 ${C.sp.rate}% (10% 이하 5% · 10~20% 3% · 20% 초과 1%)${S.cyc&&S.cyc.jg!=null?" · 지금은 직접 입력 "+C.jg+"%":""}. `:"")+(C.sig.length?"⚠ "+C.sig.join(" · ")+(C.early?" → 하락 시작을 앞당겼어요":""):"하락 신호 없음")+` · 신호 기준: 하급지 전세가율 40% 이하, 외곽(일산·파주·옥정 등) 50% 이하${C.mrOut!=null?" (현재 외곽 "+f1(C.mrOut)+"%)":""}`;}
   const sgg=S.sig;$("heroChips").innerHTML=
     `<span class="hchip main">${esc(t.name||"대상 단지")} 예상 고점 <b>${f1(C)}억</b> ${C>=t.price?"+":""}${f1((C/t.price-1)*100)}%</span>`+
     `<span class="hchip">사이클 <b>${S.stage+1}단계</b> ${STAGES[S.stage].t}</span>`+
